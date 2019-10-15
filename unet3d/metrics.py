@@ -1,4 +1,5 @@
 import importlib
+import sys
 
 import numpy as np
 import torch
@@ -105,7 +106,8 @@ class MeanIoU:
         """
         Computes IoU for a given target and prediction tensors
         """
-        return torch.sum(prediction & target).float() / torch.sum(prediction | target).float()
+        #return torch.sum(prediction & target).float() / torch.sum(prediction | target).float()
+        return torch.sum(prediction & target).float() / (torch.sum(prediction | target).float() + sys.float_info.epsilon)
 
 
 class AdaptedRandError:

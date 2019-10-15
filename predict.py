@@ -11,6 +11,8 @@ from unet3d.model import get_model
 
 logger = utils.get_logger('UNet3DPredictor')
 
+threshold = 0.8
+
 
 def predict_in_memory(model, data_loader, output_file, config):
     """
@@ -103,10 +105,15 @@ def predict_in_memory(model, data_loader, output_file, config):
 
     # save probability maps
     prediction_datasets = _get_dataset_names(config, output_heads, prefix='predictions')
+    logger.info('output file: {}'.format(output_file))
     with h5py.File(output_file, 'w') as f:
         for prediction_map, normalization_mask, prediction_dataset in zip(prediction_maps, normalization_masks,
                                                                           prediction_datasets):
             prediction_map = prediction_map / normalization_mask
+            
+            # convert to binary
+            #prediction_map_binary = np.array(np.where(prediction_map > threshold, 1, 0))
+
             logger.info(f'Saving predictions to: {output_file}/{prediction_dataset}...')
             f.create_dataset(prediction_dataset, data=prediction_map, compression="gzip")
 

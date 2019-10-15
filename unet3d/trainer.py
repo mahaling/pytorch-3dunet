@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 import numpy as np
 import torch
@@ -260,7 +261,8 @@ class UNet3DTrainer:
     def _forward_pass(self, input, target, weight=None):
         # forward pass
         output = self.model(input)
-
+        #print(output.cpu().detach().numpy().shape, target.cpu().numpy().shape)
+        target = target.to(torch.long)
         # compute the loss
         if weight is None:
             loss = self.loss_criterion(output, target)
@@ -360,7 +362,8 @@ class UNet3DTrainer:
 
     @staticmethod
     def _normalize_img(img):
-        return (img - np.min(img)) / np.ptp(img)
+        #return (img - np.min(img)) / np.ptp(img)
+        return (img - np.min(img)) / (np.ptp(img) + sys.float_info.epsilon)
 
     @staticmethod
     def _batch_size(input):
