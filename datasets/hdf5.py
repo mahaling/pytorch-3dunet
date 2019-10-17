@@ -360,6 +360,7 @@ def get_test_loaders(config):
 
     # get train and validation files
     test_paths = datasets_config['test_path']
+    print(test_paths)
     assert isinstance(test_paths, list)
     # get h5 internal path
     raw_internal_path = datasets_config['raw_internal_path']
