@@ -13,6 +13,7 @@ def load_config():
     args = parser.parse_args()
     config = _load_config_yaml(args.config)
     # Get a device to train on
+    print(DEFAULT_DEVICE)
     device = config.get('device', DEFAULT_DEVICE)
     config['device'] = torch.device(device)
     return config

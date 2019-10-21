@@ -159,6 +159,7 @@ class UNet3DTrainer:
                 f'Training iteration {self.num_iterations}. Batch {i}. Epoch [{self.num_epoch}/{self.max_num_epochs - 1}]')
 
             input, target, weight = self._split_training_batch(t)
+            print(input.shape, self._batch_size(input))
 
             output, loss = self._forward_pass(input, target, weight)
 
@@ -192,6 +193,7 @@ class UNet3DTrainer:
                     output = self.model.final_activation(output)
 
                 # compute eval criterion
+                print(output.shape, target.shape)
                 eval_score = self.eval_criterion(output, target)
                 train_eval_scores.update(eval_score.item(), self._batch_size(input))
 
