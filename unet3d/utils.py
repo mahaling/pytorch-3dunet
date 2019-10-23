@@ -1,11 +1,22 @@
+import importlib
 import logging
 import os
 import shutil
 import sys
-import scipy.sparse as sparse
+import io
 
+import h5py
+from PIL import Image
 import numpy as np
+import scipy.sparse as sparse
 import torch
+import matplotlib.pyplot as plt
+import uuid
+
+from sklearn.decomposition import PCA
+
+plt.ioff()
+plt.switch_backend('agg')
 
 
 def save_checkpoint(state, is_best, checkpoint_dir, logger=None):
@@ -60,6 +71,14 @@ def load_checkpoint(checkpoint_path, model, optimizer=None):
         optimizer.load_state_dict(state['optimizer_state_dict'])
 
     return state
+
+
+def save_network_output(output_path, output, logger=None):
+    if logger is not None:
+        logger.info(f'Saving network output to: {output_path}...')
+    output = output.detach().cpu()[0]
+    with h5py.File(output_path, 'w') as f:
+        f.create_dataset('predictions', data=output, compression='gzip')
 
 
 def get_logger(name, level=logging.INFO):
@@ -118,7 +137,11 @@ def find_maximum_patch_size(model, device):
         model(patch)
 
 
-def unpad(probs, index, shape, pad_width=8):
+def unpad(patch, index, shape, pad_width=4):
+    """
+    Remove `pad_width` voxels around the edges of a given patch.
+    """
+
     def _new_slices(slicing, max_size):
         if slicing.start == 0:
             p_start = 0
@@ -139,15 +162,15 @@ def unpad(probs, index, shape, pad_width=8):
     D, H, W = shape
 
     i_c, i_z, i_y, i_x = index
-    p_c = slice(0, probs.shape[0])
+    p_c = slice(0, patch.shape[0])
 
     p_z, i_z = _new_slices(i_z, D)
     p_y, i_y = _new_slices(i_y, H)
     p_x, i_x = _new_slices(i_x, W)
 
-    probs_index = (p_c, p_z, p_y, p_x)
+    patch_index = (p_c, p_z, p_y, p_x)
     index = (i_c, i_z, i_y, i_x)
-    return probs[probs_index], index
+    return patch[patch_index], index
 
 
 def create_feature_maps(init_channel_number, number_of_fmaps):
@@ -218,3 +241,212 @@ def adapted_rand(seg, gt, all_stats=False):
         return are, precision, recall
     else:
         return are
+
+
+class _TensorboardFormatter:
+    """
+    Tensorboard formatters converts a given batch of images (be it input/output to the network or the target segmentation
+    image) to a series of images that can be displayed in tensorboard. This is the parent class for all tensorboard
+    formatters which ensures that returned images are in the 'CHW' format.
+    """
+
+    def __init__(self, **kwargs):
+        pass
+
+    def __call__(self, name, batch):
+        """
+        Transform a batch to a series of tuples of the form (tag, img), where `tag` corresponds to the image tag
+        and `img` is the image itself.
+
+        Args:
+             name (str): one of 'inputs'/'targets'/'predictions'
+             batch (torch.tensor): 4D or 5D torch tensor
+        """
+
+        def _check_img(tag_img):
+            tag, img = tag_img
+
+            assert img.ndim == 2 or img.ndim == 3, 'Only 2D (HW) and 3D (CHW) images are accepted for display'
+
+            if img.ndim == 2:
+                img = np.expand_dims(img, axis=0)
+            else:
+                C = img.shape[0]
+                assert C == 1 or C == 3, 'Only (1, H, W) or (3, H, W) images are supported'
+
+            return tag, img
+
+        assert name in ['inputs', 'targets', 'predictions']
+
+        tagged_images = self.process_batch(name, batch)
+
+        return list(map(_check_img, tagged_images))
+
+    def process_batch(self, name, batch):
+        raise NotImplementedError
+
+
+class DefaultTensorboardFormatter(_TensorboardFormatter):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def process_batch(self, name, batch):
+        tag_template = '{}/batch_{}/channel_{}/slice_{}'
+
+        tagged_images = []
+
+        if batch.ndim == 5:
+            # NCDHW
+            slice_idx = batch.shape[2] // 2  # get the middle slice
+            for batch_idx in range(batch.shape[0]):
+                for channel_idx in range(batch.shape[1]):
+                    tag = tag_template.format(name, batch_idx, channel_idx, slice_idx)
+                    img = batch[batch_idx, channel_idx, slice_idx, ...]
+                    tagged_images.append((tag, self._normalize_img(img)))
+        else:
+            # batch hafrom sklearn.decomposition import PCAs no channel dim: NDHW
+            slice_idx = batch.shape[1] // 2  # get the middle slice
+            for batch_idx in range(batch.shape[0]):
+                tag = tag_template.format(name, batch_idx, 0, slice_idx)
+                img = batch[batch_idx, slice_idx, ...]
+                tagged_images.append((tag, self._normalize_img(img)))
+
+        return tagged_images
+
+    @staticmethod
+    def _normalize_img(img):
+        return (img - np.min(img)) / np.ptp(img)
+
+
+class EmbeddingsTensorboardFormatter(DefaultTensorboardFormatter):
+    def __init__(self, plot_variance=False, **kwargs):
+        super().__init__(**kwargs)
+        self.plot_variance = plot_variance
+
+    def process_batch(self, name, batch):
+        if name == 'inputs':
+            assert batch.ndim == 5
+            # skip coordinate channels and take only the first 'raw' channel
+            batch = batch[:, 0, ...]
+            return super().process_batch(name, batch)
+        elif name == 'predictions':
+            return self._embeddings_to_rgb(batch)
+        else:
+            return super().process_batch(name, batch)
+
+    def _embeddings_to_rgb(self, batch):
+        assert batch.ndim == 5
+
+        tag_template = 'embeddings/batch_{}/slice_{}'
+        tagged_images = []
+
+        slice_idx = batch.shape[2] // 2  # get the middle slice
+        for batch_idx in range(batch.shape[0]):
+            tag = tag_template.format(batch_idx, slice_idx)
+            img = batch[batch_idx, :, slice_idx, ...]  # CHW
+            rgb_img = self._pca_project(img)
+            tagged_images.append((tag, rgb_img))
+            if self.plot_variance:
+                cum_explained_variance_img = self._plot_cum_explained_variance(img)
+                tagged_images.append((f'cumulative_explained_variance/batch_{batch_idx}', cum_explained_variance_img))
+
+        return tagged_images
+
+    def _pca_project(self, embeddings):
+        assert embeddings.ndim == 3
+        # reshape (C, H, W) -> (C, H * W) and transpose
+        flattened_embeddings = embeddings.reshape(embeddings.shape[0], -1).transpose()
+        # init PCA with 3 principal components: one for each RGB channel
+        pca = PCA(n_components=3)
+        # fit the model with embeddings and apply the dimensionality reduction
+        flattened_embeddings = pca.fit_transform(flattened_embeddings)
+        # reshape back to original
+        shape = list(embeddings.shape)
+        shape[0] = 3
+        img = flattened_embeddings.transpose().reshape(shape)
+        # normalize to [0, 255]
+        img = 255 * (img - np.min(img)) / np.ptp(img)
+        return img.astype('uint8')
+
+    def _plot_cum_explained_variance(self, embeddings):
+        # reshape (C, H, W) -> (C, H * W) and transpose
+        flattened_embeddings = embeddings.reshape(embeddings.shape[0], -1).transpose()
+        # fit PCA to the data
+        pca = PCA().fit(flattened_embeddings)
+
+        plt.figure()
+        # plot cumulative explained variance ratio
+        plt.plot(np.cumsum(pca.explained_variance_ratio_))
+        plt.xlabel('number of components')
+        plt.ylabel('cumulative explained variance');
+        buf = io.BytesIO()
+        plt.savefig(buf, format='jpeg')
+        buf.seek(0)
+        img = np.asarray(Image.open(buf)).transpose(2, 0, 1)
+        plt.close('all')
+        return img
+
+
+def get_tensorboard_formatter(config):
+    if config is None:
+        return DefaultTensorboardFormatter()
+
+    class_name = config['name']
+    m = importlib.import_module('unet3d.utils')
+    clazz = getattr(m, class_name)
+    return clazz(**config)
+
+
+def expand_as_one_hot(input, C, ignore_index=None):
+    """
+    Converts NxDxHxW label image to NxCxDxHxW, where each label gets converted to its corresponding one-hot vector
+    :param input: 4D input image (NxDxHxW)
+    :param C: number of channels/labels
+    :param ignore_index: ignore index to be kept during the expansion
+    :return: 5D output image (NxCxDxHxW)
+    """
+    assert input.dim() == 4
+
+    # expand the input tensor to Nx1xDxHxW before scattering
+    input = input.unsqueeze(1)
+    # create result tensor shape (NxCxDxHxW)
+    shape = list(input.size())
+    shape[1] = C
+
+    if ignore_index is not None:
+        # create ignore_index mask for the result
+        mask = input.expand(shape) == ignore_index
+        # clone the src tensor and zero out ignore_index in the input
+        input = input.clone()
+        input[input == ignore_index] = 0
+        # scatter to get the one-hot tensor
+        result = torch.zeros(shape).to(input.device).scatter_(1, input, 1)
+        # bring back the ignore_index in the result
+        result[mask] = ignore_index
+        return result
+    else:
+        # scatter to get the one-hot tensor
+        return torch.zeros(shape).to(input.device).scatter_(1, input, 1)
+
+
+def plot_segm(segm, ground_truth, plots_dir='.'):
+    """
+    Saves predicted and ground truth segmentation into a PNG files (one per channel).
+
+    :param segm: 4D ndarray (CDHW)
+    :param ground_truth: 4D ndarray (CDHW)
+    :param plots_dir: directory where to save the plots
+    """
+    f, axarr = plt.subplots(1, 2)
+
+    for seg, gt in zip(segm, ground_truth):
+        mid_z = seg.shape[0] // 2
+
+        axarr[0].imshow(seg[mid_z], cmap='prism')
+        axarr[0].set_title('Predicted segmentation')
+
+        axarr[1].imshow(gt[mid_z], cmap='prism')
+        axarr[1].set_title('Ground truth segmentation')
+
+        file_name = f'segm_{str(uuid.uuid4())[:8]}.png'
+        plt.savefig(os.path.join(plots_dir, file_name))
