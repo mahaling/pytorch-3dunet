@@ -9,6 +9,8 @@ from torch.utils.data import Dataset, DataLoader, ConcatDataset
 import augment.transforms as transforms
 from unet3d.utils import get_logger
 
+logger = get_logger('HDF5Dataset')
+
 
 class SliceBuilder:
     def __init__(self, raw_datasets, label_datasets, weight_dataset, patch_shape, stride_shape):
@@ -85,18 +87,92 @@ class FilterSliceBuilder(SliceBuilder):
     Filter patches containing more than `1 - threshold` of ignore_index label
     """
 
-    def __init__(self, raw_datasets, label_datasets, weight_datasets, patch_shape, stride_shape, ignore_index=(0,),
-                 threshold=0.8, slack_acceptance=0.01):
+    def __init__(self, raw_datasets, label_datasets, weight_datasets, patch_shape, stride_shape, ignore_index=(-1,),
+                 threshold=0.9, slack_acceptance=0.0):
         super().__init__(raw_datasets, label_datasets, weight_datasets, patch_shape, stride_shape)
         if label_datasets is None:
             return
+
+        rand_state = np.random.RandomState(47)
 
         def ignore_predicate(raw_label_idx):
             label_idx = raw_label_idx[1]
             patch = label_datasets[0][label_idx]
             non_ignore_counts = np.array([np.count_nonzero(patch != ii) for ii in ignore_index])
             non_ignore_counts = non_ignore_counts / patch.size
-            return np.any(non_ignore_counts > threshold) or np.random.rand() < slack_acceptance
+            return np.any(non_ignore_counts > threshold) or rand_state.rand() < slack_acceptance
+
+        zipped_slices = zip(self.raw_slices, self.label_slices)
+        # ignore slices containing too much ignore_index
+        filtered_slices = list(filter(ignore_predicate, zipped_slices))
+        # unzip and save slices
+        raw_slices, label_slices = zip(*filtered_slices)
+        self._raw_slices = list(raw_slices)
+        self._label_slices = list(label_slices)
+
+
+class EmbeddingsSliceBuilder(FilterSliceBuilder):
+    """
+    Filter patches containing more than `1 - threshold` of ignore_index label and patches containing more than
+    `patch_max_instances` labels
+    """
+
+    def __init__(self, raw_datasets, label_datasets, weight_datasets, patch_shape, stride_shape, ignore_index=(0,),
+                 threshold=0.8, slack_acceptance=0.01, patch_max_instances=48, patch_min_instances=5):
+        super().__init__(raw_datasets, label_datasets, weight_datasets, patch_shape, stride_shape, ignore_index,
+                         threshold, slack_acceptance)
+
+        if label_datasets is None:
+            return
+
+        rand_state = np.random.RandomState(47)
+
+        def ignore_predicate(raw_label_idx):
+            label_idx = raw_label_idx[1]
+            patch = label_datasets[0][label_idx]
+            num_instances = np.unique(patch).size
+
+            # patch_max_instances is a hard constraint
+            if num_instances <= patch_max_instances:
+                # make sure that we have at least patch_min_instances in the batch and allow some slack
+                return num_instances >= patch_min_instances or rand_state.rand() < slack_acceptance
+
+            return False
+
+        zipped_slices = zip(self.raw_slices, self.label_slices)
+        # ignore slices containing too much ignore_index
+        filtered_slices = list(filter(ignore_predicate, zipped_slices))
+        # unzip and save slices
+        raw_slices, label_slices = zip(*filtered_slices)
+        self._raw_slices = list(raw_slices)
+        self._label_slices = list(label_slices)
+
+
+class RandomFilterSliceBuilder(EmbeddingsSliceBuilder):
+    """
+    Filter patches containing more than `1 - threshold` of ignore_index label and return only random sample of those.
+    """
+
+    def __init__(self, raw_datasets, label_datasets, weight_datasets, patch_shape, stride_shape, ignore_index=(0,),
+                 threshold=0.8, slack_acceptance=0.01, patch_max_instances=48, patch_acceptance_probab=0.1,
+                 max_num_patches=25):
+        super().__init__(raw_datasets, label_datasets, weight_datasets, patch_shape, stride_shape,
+                         ignore_index=ignore_index, threshold=threshold, slack_acceptance=slack_acceptance,
+                         patch_max_instances=patch_max_instances)
+
+        self.max_num_patches = max_num_patches
+
+        if label_datasets is None:
+            return
+
+        rand_state = np.random.RandomState(47)
+
+        def ignore_predicate(raw_label_idx):
+            result = rand_state.rand() < patch_acceptance_probab
+            if result:
+                self.max_num_patches -= 1
+
+            return result and self.max_num_patches > 0
 
         zipped_slices = zip(self.raw_slices, self.label_slices)
         # ignore slices containing too much ignore_index
@@ -115,7 +191,8 @@ class HDF5Dataset(Dataset):
 
     def __init__(self, file_path, patch_shape, stride_shape, phase, transformer_config,
                  raw_internal_path='raw', label_internal_path='label',
-                 weight_internal_path=None, slice_builder_cls=SliceBuilder):
+                 weight_internal_path=None, slice_builder_cls=SliceBuilder,
+                 mirror_padding=False, pad_width=20):
         """
         :param file_path: path to H5 file containing raw data as well as labels and per pixel weights (optional)
         :param patch_shape: the shape of the patch DxHxW
@@ -127,11 +204,17 @@ class HDF5Dataset(Dataset):
         :param label_internal_path (str or list): H5 internal path to the label dataset
         :param weight_internal_path (str or list): H5 internal path to the per pixel weights
         :param slice_builder_cls: defines how to sample the patches from the volume
+        :param mirror_padding (bool): pad with the reflection of the vector mirrored on the first and last values
+            along each axis. Only applicable during the 'test' phase
+        :param pad_width: number of voxels padded to the edges of each axis (only if `mirror_padding=True`)
         """
         assert phase in ['train', 'val', 'test']
         self._check_patch_shape(patch_shape)
         self.phase = phase
         self.file_path = file_path
+
+        self.mirror_padding = mirror_padding
+        self.pad_width = pad_width
 
         # convert raw_internal_path, label_internal_path and weight_internal_path to list for ease of computation
         if isinstance(raw_internal_path, str):
@@ -170,6 +253,11 @@ class HDF5Dataset(Dataset):
                 self.labels = None
                 self.weight_maps = None
 
+                # add mirror padding if needed
+                if self.mirror_padding:
+                    padded_volumes = [np.pad(raw, pad_width=self.pad_width, mode='reflect') for raw in self.raws]
+                    self.raws = padded_volumes
+
             # build slice indices for raw and label data sets
             slice_builder = slice_builder_cls(self.raws, self.labels, self.weight_maps, patch_shape, stride_shape)
             self.raw_slices = slice_builder.raw_slices
@@ -177,6 +265,7 @@ class HDF5Dataset(Dataset):
             self.weight_slices = slice_builder.weight_slices
 
             self.patch_count = len(self.raw_slices)
+            logger.info(f'Number of patches: {self.patch_count}')
 
     def __getitem__(self, idx):
         if idx >= len(self):
@@ -273,7 +362,6 @@ def get_train_loaders(config):
     assert 'loaders' in config, 'Could not find data loaders configuration'
     loaders_config = config['loaders']
 
-    logger = get_logger('HDF5Dataset')
     logger.info('Creating training and validation set loaders...')
 
     # get train and validation files
@@ -291,10 +379,10 @@ def get_train_loaders(config):
     val_patch = tuple(loaders_config['val_patch'])
     val_stride = tuple(loaders_config['val_stride'])
 
-    # get slice_builder_cls
-    slice_builder_str = loaders_config.get('slice_builder', 'SliceBuilder')
-    logger.info(f'Slice builder class: {slice_builder_str}')
-    slice_builder_cls = _get_slice_builder_cls(slice_builder_str)
+    # get train slice_builder_cls
+    train_slice_builder_str = loaders_config.get('train_slice_builder', 'SliceBuilder')
+    logger.info(f'Train slice builder class: {train_slice_builder_str}')
+    train_slice_builder_cls = _get_slice_builder_cls(train_slice_builder_str)
 
     train_datasets = []
     for train_path in train_paths:
@@ -306,10 +394,15 @@ def get_train_loaders(config):
                                         raw_internal_path=raw_internal_path,
                                         label_internal_path=label_internal_path,
                                         weight_internal_path=weight_internal_path,
-                                        slice_builder_cls=slice_builder_cls)
+                                        slice_builder_cls=train_slice_builder_cls)
             train_datasets.append(train_dataset)
         except Exception:
             logger.info(f'Skipping training set: {train_path}', exc_info=True)
+
+    # get val slice_builder_cls
+    val_slice_builder_str = loaders_config.get('val_slice_builder', 'SliceBuilder')
+    logger.info(f'Val slice builder class: {val_slice_builder_str}')
+    val_slice_builder = _get_slice_builder_cls(val_slice_builder_str)
 
     val_datasets = []
     for val_path in val_paths:
@@ -319,22 +412,39 @@ def get_train_loaders(config):
                                       transformer_config=loaders_config['transformer'],
                                       raw_internal_path=raw_internal_path,
                                       label_internal_path=label_internal_path,
-                                      weight_internal_path=weight_internal_path)
+                                      weight_internal_path=weight_internal_path,
+                                      slice_builder_cls=val_slice_builder)
             val_datasets.append(val_dataset)
         except Exception:
             logger.info(f'Skipping validation set: {val_path}', exc_info=True)
 
     num_workers = loaders_config.get('num_workers', 1)
-    logger.info(f'Number of workers for train/val datasets: {num_workers}')
+    logger.info(f'Number of workers for train/val dataloader: {num_workers}')
+    batch_size = loaders_config.get('batch_size', 1)
+    logger.info(f'Batch size for train/val loader: {batch_size}')
     # when training with volumetric data use batch_size of 1 due to GPU memory constraints
     batch_size = 1
     if config['trainer']['batch_size']:
         batch_size = config['trainer']['batch_size']
     print(batch_size)
     return {
-        'train': DataLoader(ConcatDataset(train_datasets), batch_size=batch_size, shuffle=True, num_workers=num_workers),
+        'train': DataLoader(ConcatDataset(train_datasets), batch_size=batch_size, shuffle=True,
+                            num_workers=num_workers),
         'val': DataLoader(ConcatDataset(val_datasets), batch_size=batch_size, shuffle=True, num_workers=num_workers)
     }
+
+
+def prediction_collate(batch):
+    error_msg = "batch must contain tensors or slice; found {}"
+    if isinstance(batch[0], torch.Tensor):
+        return torch.stack(batch, 0)
+    elif isinstance(batch[0], tuple) and isinstance(batch[0][0], slice):
+        return batch
+    elif isinstance(batch[0], collections.Sequence):
+        transposed = zip(*batch)
+        return [prediction_collate(samples) for samples in transposed]
+
+    raise TypeError((error_msg.format(type(batch[0]))))
 
 
 def get_test_loaders(config):
@@ -344,20 +454,6 @@ def get_test_loaders(config):
     :param config: a top level configuration object containing the 'datasets' key
     :return: generator of DataLoader objects
     """
-
-    def my_collate(batch):
-        error_msg = "batch must contain tensors or slice; found {}"
-        if isinstance(batch[0], torch.Tensor):
-            return torch.stack(batch, 0)
-        elif isinstance(batch[0], slice):
-            return batch[0]
-        elif isinstance(batch[0], collections.Sequence):
-            transposed = zip(*batch)
-            return [my_collate(samples) for samples in transposed]
-
-        raise TypeError((error_msg.format(type(batch[0]))))
-
-    logger = get_logger('HDF5Dataset')
 
     assert 'datasets' in config, 'Could not find data sets configuration'
     datasets_config = config['datasets']
@@ -371,13 +467,25 @@ def get_test_loaders(config):
     # get train/validation patch size and stride
     patch = tuple(datasets_config['patch'])
     stride = tuple(datasets_config['stride'])
+
+    mirror_padding = datasets_config.get('mirror_padding', False)
+    pad_width = datasets_config.get('pad_width', 20)
+
+    if mirror_padding:
+        logger.info(f'Using mirror padding. Pad width: {pad_width}')
+
     num_workers = datasets_config.get('num_workers', 1)
+    logger.info(f'Number of workers for the dataloader: {num_workers}')
+
+    batch_size = datasets_config.get('batch_size', 1)
+    logger.info(f'Batch size for dataloader: {batch_size}')
 
     # construct datasets lazily
     datasets = (HDF5Dataset(test_path, patch, stride, phase='test', raw_internal_path=raw_internal_path,
-                            transformer_config=datasets_config['transformer']) for test_path in test_paths)
+                            transformer_config=datasets_config['transformer'],
+                            mirror_padding=mirror_padding, pad_width=pad_width) for test_path in test_paths)
 
     # use generator in order to create data loaders lazily one by one
     for dataset in datasets:
         logger.info(f'Loading test set from: {dataset.file_path}...')
-        yield DataLoader(dataset, batch_size=1, num_workers=num_workers, collate_fn=my_collate)
+        yield DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, collate_fn=prediction_collate)
