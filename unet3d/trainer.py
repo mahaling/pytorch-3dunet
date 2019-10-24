@@ -171,10 +171,10 @@ class UNet3DTrainer:
                 f'Training iteration {self.num_iterations}. Batch {i}. Epoch [{self.num_epoch}/{self.max_num_epochs - 1}]')
 
             input, target, weight = self._split_training_batch(t)
-            print(input.shape, self._batch_size(input))
+            #print(input.shape, self._batch_size(input))
 
             output, loss = self._forward_pass(input, target, weight)
-
+            #print(loss)
             train_losses.update(loss.item(), self._batch_size(input))
 
             # compute gradients and update parameters
@@ -275,6 +275,7 @@ class UNet3DTrainer:
     def _forward_pass(self, input, target, weight=None):
         # forward pass
         output = self.model(input)
+        #print("Outside: input size", input.size(), "output_size", output.size())
         #print(output.cpu().detach().numpy().shape, target.cpu().numpy().shape)
         target = target.to(torch.long)
         # compute the loss

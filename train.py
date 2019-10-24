@@ -103,6 +103,7 @@ def main():
 
     # multiple GPUs
     if (torch.cuda.device_count() > 1):
+        logger.info("There are {} GPUs available".format(torch.cuda.device_count()))
         model = nn.DataParallel(model)
 
     model = model.to(config['device'])
@@ -111,6 +112,7 @@ def main():
 
     # Create loss criterion
     loss_criterion = get_loss_criterion(config)
+
     # Create evaluation metric
     eval_criterion = get_evaluation_metric(config)
 
