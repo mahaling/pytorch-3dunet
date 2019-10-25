@@ -423,6 +423,10 @@ def get_train_loaders(config):
     batch_size = loaders_config.get('batch_size', 1)
     logger.info(f'Batch size for train/val loader: {batch_size}')
     # when training with volumetric data use batch_size of 1 due to GPU memory constraints
+    batch_size = 1
+    if config['trainer']['batch_size']:
+        batch_size = config['trainer']['batch_size']
+    print(batch_size)
     return {
         'train': DataLoader(ConcatDataset(train_datasets), batch_size=batch_size, shuffle=True,
                             num_workers=num_workers),
