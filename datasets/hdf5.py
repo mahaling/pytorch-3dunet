@@ -257,7 +257,7 @@ class HDF5Dataset(Dataset):
                 if self.mirror_padding:
                     padded_volumes = [np.pad(raw, pad_width=self.pad_width, mode='reflect') for raw in self.raws]
                     self.raws = padded_volumes
-
+            
             # build slice indices for raw and label data sets
             slice_builder = slice_builder_cls(self.raws, self.labels, self.weight_maps, patch_shape, stride_shape)
             self.raw_slices = slice_builder.raw_slices
@@ -275,7 +275,7 @@ class HDF5Dataset(Dataset):
         raw_idx = self.raw_slices[idx]
         # get the raw data patch for a given slice
         raw_patch_transformed = self._transform_patches(self.raws, raw_idx, self.raw_transform)
-
+        
         if self.phase == 'test':
             # just return the transformed raw patch and the metadata
             return raw_patch_transformed, raw_idx
