@@ -266,7 +266,7 @@ class HDF5Dataset(Dataset):
                         padded_volumes.append(padded_volume)
 
                     self.raws = padded_volumes
-
+            
             # build slice indices for raw and label data sets
             slice_builder = slice_builder_cls(self.raws, self.labels, self.weight_maps, patch_shape, stride_shape)
             self.raw_slices = slice_builder.raw_slices
@@ -284,7 +284,7 @@ class HDF5Dataset(Dataset):
         raw_idx = self.raw_slices[idx]
         # get the raw data patch for a given slice
         raw_patch_transformed = self._transform_patches(self.raws, raw_idx, self.raw_transform)
-
+        
         if self.phase == 'test':
             # discard the input channel dimension: predictor requires only the spatial dimensions of the volume
             if len(raw_idx) == 4:

@@ -1,0 +1,166 @@
+# use a fixed random seed to guarantee that when you run the code twice you will get the same outcome
+manual_seed: 0
+# device ids
+device: cuda:0
+# model configuration
+model:
+  # model class
+  name: UNet3D
+  # number of input channels to the model
+  in_channels: 1
+  # number of output channels
+  out_channels: 2
+  # determines the order of operators in a single layer (crg - Conv3d+ReLU+GroupNorm)
+  layer_order: crg
+  # feature maps scale factor
+  f_maps: 32
+  # number of groups in the groupnorm
+  num_groups: 8
+  # apply element-wise nn.Sigmoid after the final 1x1 convolution, otherwise apply nn.Softmax
+  final_sigmoid: false
+# trainer configuration
+trainer:
+  # path to the checkpoint directory
+  checkpoint_dir: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip4_v1
+  # path to latest checkpoint; if provided the training will be resumed from that checkpoint
+  resume: null
+  # how many iterations between validations
+  validate_after_iters: 1000
+  # how many iterations between tensorboard logging
+  log_after_iters: 20
+  # max number of epochs
+  epochs: 50
+  # max number of iterations
+  iters: 100000
+  # model with higher eval score is considered better
+  eval_score_higher_is_better: True
+  # batch size (always set to 1 if you have only one GPU)
+  batch_size: 4
+# optimizer configuration
+optimizer:
+  # initial learning rate
+  learning_rate: 0.00001
+  # weight decay
+  weight_decay: 0.005
+# loss function configuration
+loss:
+  # loss function to be used during training
+  name: CrossEntropyLoss
+  # A manual rescaling weight given to each class.
+  loss_weight: null
+  # a target value that is ignored and does not contribute to the input gradient
+  ignore_index: null
+# evaluation metric configuration
+eval_metric:
+  name: MeanIoU
+  # a target label that is ignored during metric evaluation
+  ignore_index: null
+lr_scheduler:
+  name: MultiStepLR
+  milestones: [10, 30, 60]
+  gamma: 0.2
+# data loaders configuration
+loaders:
+  # train patch size given to the network (adapt to fit in your GPU mem, generally the bigger patch the better)
+  train_patch: [128, 128, 128]
+  # train stride between patches
+  train_stride: [64, 64, 64]
+  # validation patch (can be bigger than train patch since there is no backprop)
+  val_patch: [128, 128, 128]
+  # validation stride (validation patches doesn't need to overlap)
+  val_stride: [128, 128, 128]
+  # path to the raw data within the H5
+  raw_internal_path: raw
+  # path to the the label data withtin the H5
+  label_internal_path: label
+  # paths to the training datasets
+  train_path:
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4900247439186.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/364070302404.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5661484598899.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5013007221653.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/19302607457.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3371558156996.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5492890521927.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3236442651767.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2869919327497.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5284873951835.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2521934716835.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2955415948230.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5255484061354.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/130371691400.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3116540042662.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2604596134151.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1470892671996.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3031534250463.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6272938575548.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3181480447266.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3368777298094.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5414645428399.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3977504954006.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2860049886370.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3324174867444.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5429967491768.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3294021868407.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1051587864418.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1041173157616.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6580028988837.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5506740073111.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1426835256368.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3297239087506.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2307374743563.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/742971245632.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2995056566885.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1827874009367.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3239714450134.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1592048892569.h5'
+  # paths to the validation datasets
+  val_path:
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2337255261791.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6450311502822.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4071616951822.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4156404396699.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5353903469975.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5522606871484.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4965733399308.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5491527070864.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6628393211871.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3339987406783.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2549688431762.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2987041060407.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4075487826209.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6118030388324.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/909820637264.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4060656969574.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1463422453239.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5223695498676.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/213305976073.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3294785541824.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4838305950592.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1813261048168.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6060723658502.h5'
+# how many subprocesses to use for data loading
+  num_workers: 8
+  # data transformations/augmentations
+  transformer:
+    train:
+      raw:
+        - name: Normalize
+        - name: RandomFlip
+        - name: RandomContrast
+        - name: ToTensor
+          expand_dims: true
+      label:
+        - name: RandomFlip
+        - name: ToTensor
+          expand_dims: false
+          dtype: 'long'
+    test:
+      raw:
+        - name: Normalize
+        - name: ToTensor
+          expand_dims: true
+      label:
+        - name: ToTensor
+          expand_dims: false
+          dtype: 'long'

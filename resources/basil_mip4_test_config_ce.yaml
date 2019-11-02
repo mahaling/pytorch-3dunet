@@ -1,0 +1,105 @@
+# path to the checkpoint file containing the model
+model_path: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip4/best_checkpoint.pytorch
+# Should the patches be stored in memory or written directly to H5 during prediction.
+# Set to True if you have enough RAM cause it's way faster
+store_predictions_in_memory: True
+# model configuration
+model:
+  # model class
+  name: UNet3D
+  # number of input channels to the model
+  in_channels: 1
+  # number of output channels
+  out_channels: 2
+  # determines the order of operators in a single layer (crg - Conv3d+ReLU+GroupNorm)
+  layer_order: crg
+  # feature maps scale factor
+  f_maps: 32
+  # basic module
+  basic_module: DoubleConv
+  # number of groups in the groupnorm
+  num_groups: 8
+  # apply element-wise nn.Sigmoid after the final 1x1 convolution, otherwise apply nn.Softmax
+  final_sigmoid: false
+# predictor configuration
+predictor:
+  # standard in memory predictor
+  name: 'StandardPredictor'
+# specify the test datasets
+datasets:
+  # patch size given to the network (adapt to fit in your GPU mem)
+  patch: [64, 128, 128]
+  # stride between patches (make sure the the patches overlap in order to get smoother prediction maps)
+  stride: [32, 100, 100]
+  # path to the raw data within the H5
+  raw_internal_path: raw
+  # how many subprocesses to use for data loading
+  num_workers: 8
+  # paths to the datasets
+  test_path:
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4483124284260.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3645114737438.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2272914583998.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2672480793084.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2067897295726.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/533591384682.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3679520331025.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/562217348033.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5967211664381.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4597192582059.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6159033660903.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/320612908972.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3597567968095.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2926571707925.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2040143499551.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2047667946264.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4845285543528.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2129129673339.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5600796986510.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/936210858549.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2390200029992.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4504661808331.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3455746238690.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1792104865203.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/855348935892.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3591624796179.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1537850164951.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1758462357055.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5189507817882.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4936453019522.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1007857952937.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3344949459897.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2640583183757.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2397942808879.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1170836205315.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1877001597903.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3726249331880.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/735719119597.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2144451628234.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2765120214319.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3318558742797.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1704100107561.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3273084386618.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2530440638804.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/3682137993658.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6186678713579.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1219255093402.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5185800166119.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/619088077626.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4929528048693.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6703911689933.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5309028611763.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/6367922715773.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4179632660734.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/2856833031715.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1673347270962.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/4993268991226.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/565925360183.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/5416608285556.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/hdf5_files/1558570320333.h5'
+  transformer:
+    test:
+      raw:
+        - name: Normalize
+        - name: ToTensor
+          expand_dims: true
