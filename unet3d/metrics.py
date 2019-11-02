@@ -112,7 +112,8 @@ class MeanIoU:
         Computes IoU for a given target and prediction tensors
         """
         #return torch.sum(prediction & target).float() / torch.sum(prediction | target).float()
-        return torch.sum(prediction & target).float() / (torch.sum(prediction | target).float() + sys.float_info.epsilon)
+        #return torch.sum(prediction & target).float() / (torch.sum(prediction | target).float() + sys.float_info.epsilon)
+        return np.nan_to_num(torch.sum(prediction & target).float() / torch.sum(prediction | target).float())
 
 
 class AdaptedRandError:
@@ -398,7 +399,7 @@ class _AbstractAP:
         """
         intersection = np.logical_and(prediction, target)
         union = np.logical_or(prediction, target)
-        return np.sum(intersection) / np.sum(union)
+        return np.nan_to_num(np.sum(intersection) / np.sum(union))
 
     def _filter_instances(self, input):
         """
