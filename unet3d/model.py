@@ -6,6 +6,11 @@ import torch.nn as nn
 from unet3d.buildingblocks import Encoder, Decoder, FinalConv, DoubleConv, ExtResNetBlock, SingleConv
 from unet3d.utils import create_feature_maps
 
+from unet3d.utils import get_logger
+
+logger = get_logger('Model')
+
+
 
 class UNet3D(nn.Module):
     """
@@ -78,6 +83,7 @@ class UNet3D(nn.Module):
             self.final_activation = nn.Softmax(dim=1)
 
     def forward(self, x):
+        #print("In Model: input size", x.size())
         # encoder part
         encoders_features = []
         for encoder in self.encoders:
