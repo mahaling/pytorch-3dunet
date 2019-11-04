@@ -3,6 +3,7 @@ import os
 import sys
 
 import torch
+import torch.nn as nn
 from tensorboardX import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
@@ -282,6 +283,11 @@ class UNet3DTrainer:
             loss = self.loss_criterion(output, target)
         else:
             loss = self.loss_criterion(output, target, weight)
+
+        # send loss to GPUs
+        # multiple GPUs
+        if (torch.cuda.device_count() > 1):
+            loss = loss.cuda()
 
         return output, loss
 

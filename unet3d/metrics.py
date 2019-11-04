@@ -113,7 +113,7 @@ class MeanIoU:
         """
         #return torch.sum(prediction & target).float() / torch.sum(prediction | target).float()
         #return torch.sum(prediction & target).float() / (torch.sum(prediction | target).float() + sys.float_info.epsilon)
-        return np.nan_to_num(torch.sum(prediction & target).float() / torch.sum(prediction | target).float())
+        return np.nan_to_num((torch.sum(prediction & target).float() / torch.sum(prediction | target).float()).cpu())
 
 
 class AdaptedRandError:

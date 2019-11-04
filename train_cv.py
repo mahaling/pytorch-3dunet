@@ -2,6 +2,7 @@ import importlib
 import sys
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
@@ -34,15 +35,23 @@ def main():
 
     # Create the model
     model = get_model(config)
+
+    # multiple GPUs
+    if (torch.cuda.device_count() > 1):
+        logger.info("There are {} GPUs available".format(torch.cuda.device_count()))
+        model = nn.DataParallel(model)
+
     # put the model on GPUs
     logger.info(f"Sending the model to '{config['device']}'")
     model = model.to(config['device'])
+    
     # Log the number of learnable parameters
     logger.info(f'Number of learnable params {get_number_of_learnable_parameters(model)}')
 
     # Create loss criterion
     loss_criterion = get_loss_criterion(config)
     logger.info(f"Created loss criterion: {config['loss']['name']}")
+    
     # Create evaluation metric
     eval_criterion = get_evaluation_metric(config)
     logger.info(f"Created eval criterion: {config['eval_metric']['name']}")
