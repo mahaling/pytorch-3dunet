@@ -3,6 +3,7 @@ import hdbscan
 import numpy as np
 import time
 import torch
+import tifffile
 from sklearn.cluster import MeanShift
 
 from datasets.hdf5 import SliceBuilder
@@ -89,6 +90,8 @@ class StandardPredictor(_AbstractPredictor):
 
         # create destination H5 file
         h5_output_file = h5py.File(self.output_file, 'w')
+        
+        
         # allocate prediction and normalization arrays
         logger.info('Allocating prediction and normalization arrays...')
         prediction_maps, normalization_masks = self._allocate_prediction_maps(prediction_maps_shape,
@@ -147,6 +150,7 @@ class StandardPredictor(_AbstractPredictor):
 
         # save results to
         self._save_results(prediction_maps, normalization_masks, output_heads, h5_output_file, self.loader.dataset)
+        
         # close the output H5 file
         h5_output_file.close()
 
@@ -197,6 +201,7 @@ class LazyPredictor(StandardPredictor):
     def _allocate_prediction_maps(self, output_shape, output_heads, output_file):
         # allocate datasets for probability maps
         prediction_datasets = self._get_output_dataset_names(output_heads, prefix='predictions')
+
         prediction_maps = [
             output_file.create_dataset(dataset_name, shape=output_shape, dtype='float32', chunks=True,
                                        compression='gzip')
