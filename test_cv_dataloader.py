@@ -2,7 +2,7 @@ import importlib
 import sys
 import torch
 
-from datasets.cloud_volume import get_train_loaders
+from datasets.cloud_volume import get_test_loaders, get_train_loaders
 from unet3d.config import load_config
 from unet3d.model import get_model
 from unet3d.utils import get_logger, get_tensorboard_formatter
@@ -22,13 +22,16 @@ def main():
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-        loaders = get_train_loaders(config)
+    #loaders = get_train_loaders(config)
 
-        print(loaders['train'].__len__())
+    #print(loaders['test'].__len__())
 
-        for i, t in enumerate(loaders['train']):
-            for tt in t:
-                print(i, tt.shape)
+    #for i, t in enumerate(loaders['test']):
+    #    for tt in t:
+    #        print(i, tt.shape)
+
+    for loader in get_test_loaders(config):
+        print(loader.dataset.__getid__())
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ class CloudVolumeDataset(Dataset):
     cutout bounds, id (a zero represents DO NOT USE), cloudvolume paths for image and seg
     """
 
-    def __init__(self, image_cv, seg_cv, bounds, mip_level,
+    def __init__(self, image_cv, seg_cv, id, bounds, mip_level,
                  phase, patch_shape, stride_shape,
                  transformer_config, slice_builder_cls=SliceBuilder,
                  mirror_padding=False, pad_width=20):
@@ -35,6 +35,7 @@ class CloudVolumeDataset(Dataset):
         self._check_patch_shape(patch_shape)
         self.image_cv = image_cv
         self.seg_cv = seg_cv
+        self.id = id
         assert isinstance(bounds, list)
         self.bounds = bounds
         self.mip_level = mip_level
@@ -112,6 +113,9 @@ class CloudVolumeDataset(Dataset):
                 return raw_patch_transformed, label_patch_transformed, weight_patch_transformed
             # return the transformed raw and label patches
             return raw_patch_transformed, label_patch_transformed
+
+    def __getid__(self):
+        return self.id
 
     @staticmethod
     def _transform_patches(datasets, label_idx, transformer):
@@ -225,14 +229,14 @@ def get_train_loaders(config):
         if row['phase'] == 'train':
             try:
                 logger.info("Loading image and segmentation mask for {}".format(row['id']))
-                train_dataset = CloudVolumeDataset(image_cv, seg_cv, row['cutout_bounds'], mip_level, 'train', train_patch, train_stride, transformer_config=loaders_config['transformer'], slice_builder_cls=train_slice_builder_cls)
+                train_dataset = CloudVolumeDataset(image_cv, seg_cv, row['id'], row['cutout_bounds'], mip_level, 'train', train_patch, train_stride, transformer_config=loaders_config['transformer'], slice_builder_cls=train_slice_builder_cls)
                 train_datasets.append(train_dataset)
             except Exception:
                 logger.info("Skipping training data for: {}".format(row['id']), exc_info=True)
         if row['phase'] == 'val':
             try:
                 logger.info(f"Loading image and segmentation mask for {row['id']}")
-                val_dataset = CloudVolumeDataset(image_cv, seg_cv, row['cutout_bounds'],
+                val_dataset = CloudVolumeDataset(image_cv, seg_cv, row['id'], row['cutout_bounds'],
                                                  mip_level, 'val', val_patch, val_stride,
                                                  transformer_config=loaders_config['transformer'], slice_builder_cls=val_slice_builder)
                 val_datasets.append(val_dataset)
@@ -306,7 +310,7 @@ def get_test_loaders(config):
     for indx, row in df.iterrows():
         if row['id'] == 0 or row['phase'] != 'test':
             continue
-        test_dataset = CloudVolumeDataset(image_cv, seg_cv, row['cutout_bounds'], 
+        test_dataset = CloudVolumeDataset(image_cv, seg_cv, row['id'], list(row['cutout_bounds']), 
                                           mip_level, 'test', patch, stride, 
                                           transformer_config=datasets_config['transformer'],
                                           mirror_padding=mirror_padding, pad_width=pad_width)
