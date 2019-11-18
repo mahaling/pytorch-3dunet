@@ -3,7 +3,7 @@ import os
 import torch
 import torch.nn as nn
 
-from datasets.hdf5 import get_test_loaders
+from datasets.cloud_volume import get_test_loaders
 from unet3d import utils
 from unet3d.config import load_config
 from unet3d.model import get_model
@@ -12,17 +12,12 @@ logger = utils.get_logger('UNet3DPredictor')
 
 threshold = 0.8
 
-
-def _get_output_file(out_path, dataset, suffix='predictions', format='h5'):
-    return f"{os.path.join(out_path, '{}_{}.{}'.format(os.path.splitext(dataset.file_path)[0], suffix, format))}"
-
-
-#def _get_output_file(dataset, suffix='_predictions'):
-#    return f'{os.path.splitext(dataset.file_path)[0]}{suffix}.h5'
+def _get_output_file(out_path, filename, suffix='predictions', format='h5'):
+    return f"{os.path.join(out_path, '{}_{}.{}'.format(filename, suffix, format))}"
 
 
 def _get_dataset_names(config, number_of_datasets, prefix='predictions'):
-    dataset_names = config.get('dest_dataset_name')
+    dataset_names = config.get('test_dataset_name')
     if dataset_names is not None:
         if isinstance(dataset_names, str):
             return [dataset_names]
@@ -64,17 +59,16 @@ def main():
     logger.info(f"Sending the model to '{config['device']}'")
     model = model.to(config['device'])
 
-    logger.info('Loading HDF5 datasets...')
+    logger.info('Loading test files...')
     for test_loader in get_test_loaders(config):
-        logger.info(f"Processing '{test_loader.dataset.file_path}'...")
+        logger.info(f"Processing '{test_loader.dataset.id}'...")
+        
+        output_file = _get_output_file(config['output_folder'], test_loader.dataset.id, format='h5')
 
-        #output_file = _get_output_file(test_loader.dataset)
-        output_file = _get_output_file(config['output_folder'], test_loader.dataset)
-        logger.info(output_file)
         predictor = _get_predictor(model, test_loader, output_file, config)
-        # run the model prediction on the entire dataset and save to the 'output_file' H5
-        predictor.predict()
 
+        # run the model prediction on the entire dataset and save to the 'output_file'
+        predictor.predict()
 
 if __name__ == '__main__':
     main()
