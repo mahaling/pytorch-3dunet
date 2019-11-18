@@ -8,7 +8,7 @@ from unet3d import utils
 from unet3d.config import load_config
 from unet3d.model import get_model
 
-logger = utils.get_logger('UNet3DPredictor')
+#logger = utils.get_logger('UNet3DPredictor')
 
 threshold = 0.8
 
@@ -43,6 +43,10 @@ def _get_predictor(model, loader, output_file, config):
 def main():
     # Load configuration
     config = load_config()
+
+    # create logger
+    logfile = config.get('logfile', None)
+    logger = utils.get_logger('UNet3DPredictor', logfile=logfile)
 
     # Create the model
     model = get_model(config)

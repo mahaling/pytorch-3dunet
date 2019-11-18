@@ -20,6 +20,8 @@ class _AbstractPredictor:
         self.output_file = output_file
         self.config = config
         self.predictor_config = kwargs
+        self.logfile = self.config.get('logfile', None)
+        self.logger = get_logger('UNet3DTrainer', logfile=self.logfile)
 
     @staticmethod
     def _volume_shape(dataset):
@@ -68,12 +70,12 @@ class StandardPredictor(_AbstractPredictor):
 
         prediction_channel = self.config.get('prediction_channel', None)
         if prediction_channel is not None:
-            logger.info(f"Using only channel '{prediction_channel}' from the network output")
+            self.logger.info(f"Using only channel '{prediction_channel}' from the network output")
 
         device = self.config['device']
         output_heads = self.config['model'].get('output_heads', 1)
 
-        logger.info(f'Running prediction on {len(self.loader)} batches...')
+        self.logger.info(f'Running prediction on {len(self.loader)} batches...')
 
         # dimensionality of the the output predictions
         volume_shape = self._volume_shape(self.loader.dataset)
@@ -83,17 +85,17 @@ class StandardPredictor(_AbstractPredictor):
             # single channel prediction map
             prediction_maps_shape = (1,) + volume_shape
 
-        logger.info(f'The shape of the output prediction maps (CDHW): {prediction_maps_shape}')
+        self.logger.info(f'The shape of the output prediction maps (CDHW): {prediction_maps_shape}')
 
         avoid_block_artifacts = self.predictor_config.get('avoid_block_artifacts', True)
-        logger.info(f'Avoid block artifacts: {avoid_block_artifacts}')
+        self.logger.info(f'Avoid block artifacts: {avoid_block_artifacts}')
 
         # create destination H5 file
         h5_output_file = h5py.File(self.output_file, 'w')
         
         
         # allocate prediction and normalization arrays
-        logger.info('Allocating prediction and normalization arrays...')
+        self.logger.info('Allocating prediction and normalization arrays...')
         prediction_maps, normalization_masks = self._allocate_prediction_maps(prediction_maps_shape,
                                                                               output_heads, h5_output_file)
 
@@ -130,10 +132,10 @@ class StandardPredictor(_AbstractPredictor):
 
                         if prediction_channel is not None:
                             # use only the 'prediction_channel'
-                            logger.info(f"Using channel '{prediction_channel}'...")
+                            self.logger.info(f"Using channel '{prediction_channel}'...")
                             pred = np.expand_dims(pred[prediction_channel], axis=0)
 
-                        logger.info(f'Saving predictions for slice:{index}...')
+                        self.logger.info(f'Saving predictions for slice:{index}...')
 
                         if avoid_block_artifacts:
                             # unpad in order to avoid block artifacts in the output probability maps
@@ -170,11 +172,11 @@ class StandardPredictor(_AbstractPredictor):
 
             if dataset.mirror_padding:
                 pad_width = dataset.pad_width
-                logger.info(f'Dataset loaded with mirror padding, pad_width: {pad_width}. Cropping before saving...')
+                self.logger.info(f'Dataset loaded with mirror padding, pad_width: {pad_width}. Cropping before saving...')
 
                 prediction_map = prediction_map[:, pad_width:-pad_width, pad_width:-pad_width, pad_width:-pad_width]
 
-            logger.info(f'Saving predictions to: {output_file}/{prediction_dataset}...')
+            self.logger.info(f'Saving predictions to: {output_file}/{prediction_dataset}...')
             output_file.create_dataset(prediction_dataset, data=prediction_map, compression="gzip")
 
 
@@ -218,7 +220,7 @@ class LazyPredictor(StandardPredictor):
 
     def _save_results(self, prediction_maps, normalization_masks, output_heads, output_file, dataset):
         if dataset.mirror_padding:
-            logger.warn(
+            self.logger.warn(
                 f'Mirror padding unsupported in LazyPredictor. Output predictions will be padded with pad_width: {dataset.pad_width}')
 
         prediction_datasets = self._get_output_dataset_names(output_heads, prefix='predictions')
@@ -230,19 +232,19 @@ class LazyPredictor(StandardPredictor):
                                                                                                  prediction_datasets,
                                                                                                  normalization_datasets):
             # split the volume into 4 parts and load each into the memory separately
-            logger.info(f'Normalizing {prediction_dataset}...')
+            self.logger.info(f'Normalizing {prediction_dataset}...')
 
             z, y, x = prediction_map.shape[1:]
             # take slices which are 1/27 of the original volume
             patch_shape = (z // 3, y // 3, x // 3)
             for index in SliceBuilder._build_slices(prediction_map, patch_shape=patch_shape, stride_shape=patch_shape):
-                logger.info(f'Normalizing slice: {index}')
+                self.logger.info(f'Normalizing slice: {index}')
                 prediction_map[index] /= normalization_mask[index]
                 # make sure to reset the slice that has been visited already in order to avoid 'double' normalization
                 # when the patches overlap with each other
                 normalization_mask[index] = 1
 
-            logger.info(f'Deleting {normalization_dataset}...')
+            self.logger.info(f'Deleting {normalization_dataset}...')
             del output_file[normalization_dataset]
 
 
@@ -262,7 +264,7 @@ class EmbeddingsPredictor(_AbstractPredictor):
         self.clustering = clustering
 
         assert clustering in ['hdbscan', 'meanshift'], 'Only HDBSCAN and MeanShift are supported'
-        logger.info(f'IoU threshold: {iou_threshold}')
+        self.logger.info(f'IoU threshold: {iou_threshold}')
 
         self.clustering_name = clustering
         self.clustering = self._get_clustering(clustering, kwargs)
@@ -271,14 +273,14 @@ class EmbeddingsPredictor(_AbstractPredictor):
         device = self.config['device']
         output_heads = self.config['model'].get('output_heads', 1)
 
-        logger.info(f'Running prediction on {len(self.loader)} patches...')
+        self.logger.info(f'Running prediction on {len(self.loader)} patches...')
 
         # dimensionality of the the output segmentation
         volume_shape = self._volume_shape(self.loader.dataset)
 
-        logger.info(f'The shape of the output segmentation (DHW): {volume_shape}')
+        self.logger.info(f'The shape of the output segmentation (DHW): {volume_shape}')
 
-        logger.info('Allocating segmentation array...')
+        self.logger.info('Allocating segmentation array...')
         # initialize the output prediction arrays
         output_segmentations = [np.zeros(volume_shape, dtype='int32') for _ in range(output_heads)]
         # initialize visited_voxels arrays
@@ -289,7 +291,7 @@ class EmbeddingsPredictor(_AbstractPredictor):
         # Run predictions on the entire input dataset
         with torch.no_grad():
             for batch, indices in self.loader:
-                # logger.info(f'Predicting embeddings for slice:{index}')
+                # self.logger.info(f'Predicting embeddings for slice:{index}')
 
                 # send batch to device
                 batch = batch.to(device)
@@ -318,7 +320,7 @@ class EmbeddingsPredictor(_AbstractPredictor):
             prediction_datasets = self._get_output_dataset_names(output_heads,
                                                                  prefix=f'segmentation/{self.clustering_name}')
             for output_segmentation, prediction_dataset in zip(output_segmentations, prediction_datasets):
-                logger.info(f'Saving predictions to: {output_file}/{prediction_dataset}...')
+                self.logger.info(f'Saving predictions to: {output_file}/{prediction_dataset}...')
                 output_file.create_dataset(prediction_dataset, data=output_segmentation, compression="gzip")
 
     def _embeddings_to_segmentation(self, embeddings):
@@ -335,11 +337,11 @@ class EmbeddingsPredictor(_AbstractPredictor):
         # reshape (C, D, H, W) -> (C, D * H * W) and transpose -> (D * H * W, C)
         flattened_embeddings = embeddings.reshape(embeddings.shape[0], -1).transpose()
 
-        logger.info('Clustering embeddings...')
+        self.logger.info('Clustering embeddings...')
         # perform clustering and reshape in order to get the segmentation volume
         start = time.time()
         clusters = self.clustering.fit_predict(flattened_embeddings).reshape(output_shape)
-        logger.info(
+        self.logger.info(
             f'Number of clusters found by {self.clustering}: {np.max(clusters)}. Duration: {time.time() - start} sec.')
         return clusters
 
@@ -405,7 +407,7 @@ class EmbeddingsPredictor(_AbstractPredictor):
         return result
 
     def _get_clustering(self, clustering_alg, kwargs):
-        logger.info(f'Using {clustering_alg} for clustering')
+        self.logger.info(f'Using {clustering_alg} for clustering')
 
         if clustering_alg == 'hdbscan':
             min_cluster_size = kwargs.get('min_cluster_size', 50)
@@ -413,11 +415,11 @@ class EmbeddingsPredictor(_AbstractPredictor):
             metric = kwargs.get('metric', 'euclidean')
             cluster_selection_method = kwargs.get('cluster_selection_method', 'eom')
 
-            logger.info(f'HDBSCAN params: min_cluster_size: {min_cluster_size}, min_samples: {min_samples}')
+            self.logger.info(f'HDBSCAN params: min_cluster_size: {min_cluster_size}, min_samples: {min_samples}')
             return hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples, metric=metric,
                                    cluster_selection_method=cluster_selection_method)
         else:
             bandwidth = kwargs['bandwidth']
-            logger.info(f'MeanShift params: bandwidth: {bandwidth}, bin_seeding: True')
+            self.logger.info(f'MeanShift params: bandwidth: {bandwidth}, bin_seeding: True')
             # use fast MeanShift with bin seeding
             return MeanShift(bandwidth=bandwidth, bin_seeding=True)

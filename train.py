@@ -81,11 +81,12 @@ def _create_lr_scheduler(config, optimizer):
 
 
 def main():
-    # Create main logger
-    logger = get_logger('UNet3DTrainer')
-
     # Load and log experiment configuration
     config = load_config()
+    
+    # Create main logger
+    logfile = config.get('logfile', None)
+    logger = get_logger('UNet3DTrainer', logfile=logfile)
     logger.info(config)
 
     manual_seed = config.get('manual_seed', None)

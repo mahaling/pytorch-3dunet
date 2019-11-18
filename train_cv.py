@@ -18,11 +18,13 @@ from unet3d.utils import get_number_of_learnable_parameters
 from train import _create_trainer, _create_optimizer, _create_lr_scheduler
 
 def main():
-    # Create main logger
-    logger = get_logger('UNet3DTrainer')
-
     # Load and log experiment configuration
     config = load_config()
+    
+    # Create main logger
+    logfile = config.get('logfile', None)
+    logger = get_logger('UNet3DTrainer', logfile=logfile)
+
     logger.info(config)
 
     manual_seed = config.get('manual_seed', None)

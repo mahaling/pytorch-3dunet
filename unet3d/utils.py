@@ -81,11 +81,13 @@ def save_network_output(output_path, output, logger=None):
         f.create_dataset('predictions', data=output, compression='gzip')
 
 
-def get_logger(name, level=logging.INFO):
+def get_logger(name, level=logging.INFO, logfile=None):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     # Logging to console
     stream_handler = logging.StreamHandler(sys.stdout)
+    if logfile is not None:
+        stream_handler = logging.FileHandler(logfile)
     formatter = logging.Formatter(
         '%(asctime)s [%(threadName)s] %(levelname)s %(name)s - %(message)s')
     stream_handler.setFormatter(formatter)

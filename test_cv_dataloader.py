@@ -32,6 +32,7 @@ def main():
 
     for loader in get_test_loaders(config):
         print(loader.dataset.__getid__())
+        print(loader.dataset.__len__())
 
 
 if __name__ == "__main__":
