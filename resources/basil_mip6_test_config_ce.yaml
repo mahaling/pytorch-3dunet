@@ -1,8 +1,10 @@
 # path to the checkpoint file containing the model
-model_path: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip6/best_checkpoint.pytorch
+model_path: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip6_unfiltered/best_checkpoint.pytorch
 # Should the patches be stored in memory or written directly to H5 during prediction.
 # Set to True if you have enough RAM cause it's way faster
-store_predictions_in_memory: True
+store_predictions_in_memory: False
+# output folder to save predictions
+output_folder: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/predictions/hdf5
 # model configuration
 model:
   # model class
@@ -22,19 +24,81 @@ model:
   # apply element-wise nn.Sigmoid after the final 1x1 convolution, otherwise apply nn.Softmax
   final_sigmoid: false
 # specify the test datasets
+# predictor configuration
+predictor:
+  # standard in memory predictor
+  name: 'StandardPredictor'
 datasets:
   # patch size given to the network (adapt to fit in your GPU mem)
-  patch: [64, 64, 64]
+  patch: [128, 64, 64]
   # stride between patches (make sure the the patches overlap in order to get smoother prediction maps)
-  stride: [16, 32, 32]
+  stride: [64, 32, 32]
   # path to the raw data within the H5
   raw_internal_path: raw
   # how many subprocesses to use for data loading
   num_workers: 8
   # paths to the datasets
   test_path:
-    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6/hdf5_files/1144281736439.h5'
-    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6/hdf5_files/2712503045408.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4483124284260.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3645114737438.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2272914583998.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2672480793084.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2067897295726.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/533591384682.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3679520331025.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/562217348033.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/5967211664381.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4597192582059.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/6159033660903.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/320612908972.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3597567968095.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2926571707925.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2040143499551.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2047667946264.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4845285543528.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2129129673339.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/5600796986510.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/936210858549.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2390200029992.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4504661808331.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3455746238690.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1792104865203.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/855348935892.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3591624796179.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1537850164951.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1758462357055.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/5189507817882.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4936453019522.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1007857952937.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3344949459897.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2640583183757.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2397942808879.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1170836205315.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1877001597903.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3726249331880.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/735719119597.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2144451628234.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2765120214319.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3318558742797.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1704100107561.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3273084386618.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2530440638804.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/3682137993658.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/6186678713579.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1219255093402.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/5185800166119.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/619088077626.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4929528048693.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/6703911689933.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/5309028611763.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/6367922715773.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4179632660734.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/2856833031715.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1673347270962.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/4993268991226.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/565925360183.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/5416608285556.h5'
+    - '/allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6_from_mip4/hdf5/1558570320333.h5'
   transformer:
     test:
       raw:

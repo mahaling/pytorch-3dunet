@@ -19,7 +19,7 @@ model:
 # trainer configuration
 trainer:
   # path to the checkpoint directory
-  checkpoint_dir: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip6
+  checkpoint_dir: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip6_test
   # path to latest checkpoint; if provided the training will be resumed from that checkpoint
   resume: null
   # how many iterations between validations
@@ -27,13 +27,13 @@ trainer:
   # how many iterations between tensorboard logging
   log_after_iters: 20
   # max number of epochs
-  epochs: 50
+  epochs: 100
   # max number of iterations
   iters: 1000000
   # model with higher eval score is considered better
   eval_score_higher_is_better: True
   # batch size (always set to 1 if you have only one GPU)
-  batch_size: 1
+  batch_size: 8
 # optimizer configuration
 optimizer:
   # initial learning rate
@@ -48,6 +48,8 @@ loss:
   loss_weight: null
   # a target value that is ignored and does not contribute to the input gradient
   ignore_index: null
+  # use gpu
+  use_gpu: True
 # evaluation metric configuration
 eval_metric:
   name: MeanIoU
@@ -59,15 +61,15 @@ lr_scheduler:
   gamma: 0.2
 # data loaders configuration
 loaders:
-  batch_size: 8
+  batch_size: 20
   # train patch size given to the network (adapt to fit in your GPU mem, generally the bigger patch the better)
   train_patch: [64, 64, 64]
   # train stride between patches
-  train_stride: [8, 16, 16]
+  train_stride: [16, 16, 16]
   # validation patch (can be bigger than train patch since there is no backprop)
   val_patch: [64, 64, 64]
   # validation stride (validation patches doesn't need to overlap)
-  val_stride: [8, 16, 16]
+  val_stride: [16, 16, 16]
   # path to the raw data within the H5
   raw_internal_path: raw
   # path to the the label data withtin the H5
@@ -75,7 +77,7 @@ loaders:
   # paths to the training datasets
   image_cv_path: precomputed://file:///allen/programs/celltypes/workgroups/em-connectomics/analysis_group/basil_v0
   seg_cv_path: precomputed://file:///allen/programs/celltypes/workgroups/em-connectomics/analysis_group/basil_nuc_mask
-  cutout_pkl_file: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/basil_mip6_cutout_bounds.pkl
+  cutout_pkl_file: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/basil_mip6_sample.pkl
   mip_level: 6
   # how many subprocesses to use for data loading
   num_workers: 8
