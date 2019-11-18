@@ -7,6 +7,8 @@ store_predictions_in_memory: True
 prediction_format: HDF5
 # output folder to save predictions
 output_folder: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip6/predictions/hdf5_test
+# cuda device
+device: cuda
 # model configuration
 model:
   # model class
