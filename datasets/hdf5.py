@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader, ConcatDataset
 import augment.transforms as transforms
 from unet3d.utils import get_logger
 
-logger = get_logger('HDF5Dataset')
+#logger = get_logger('HDF5Dataset')
 
 
 class SliceBuilder:
@@ -192,7 +192,7 @@ class HDF5Dataset(Dataset):
     def __init__(self, file_path, patch_shape, stride_shape, phase, transformer_config,
                  raw_internal_path='raw', label_internal_path='label',
                  weight_internal_path=None, slice_builder_cls=SliceBuilder,
-                 mirror_padding=False, pad_width=20):
+                 mirror_padding=False, pad_width=20, logfile=None):
         """
         :param file_path: path to H5 file containing raw data as well as labels and per pixel weights (optional)
         :param patch_shape: the shape of the patch DxHxW
@@ -215,6 +215,9 @@ class HDF5Dataset(Dataset):
 
         self.mirror_padding = mirror_padding
         self.pad_width = pad_width
+        self.logfile = logfile
+
+        self.logger = get_logger('HDF5Dataset', logfile=self.logfile)
 
         # convert raw_internal_path, label_internal_path and weight_internal_path to list for ease of computation
         if isinstance(raw_internal_path, str):
@@ -274,7 +277,7 @@ class HDF5Dataset(Dataset):
             self.weight_slices = slice_builder.weight_slices
 
             self.patch_count = len(self.raw_slices)
-            logger.info(f'Number of patches: {self.patch_count}')
+            self.logger.info(f'Number of patches: {self.patch_count}')
 
     def __getitem__(self, idx):
         if idx >= len(self):
@@ -373,6 +376,8 @@ def get_train_loaders(config):
     assert 'loaders' in config, 'Could not find data loaders configuration'
     loaders_config = config['loaders']
 
+    logger = get_logger('HDF5Dataset', logfile=config['logfile'])
+
     logger.info('Creating training and validation set loaders...')
 
     # get train and validation files
@@ -468,6 +473,8 @@ def get_test_loaders(config):
 
     assert 'datasets' in config, 'Could not find data sets configuration'
     datasets_config = config['datasets']
+
+    logger = get_logger('HDF5Dataset', logfile=config['logfile'])
 
     # get train and validation files
     test_paths = datasets_config['test_path']

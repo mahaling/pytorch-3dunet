@@ -15,7 +15,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
-logger = get_logger('CloudVolumeDataset')
+#logger = get_logger('CloudVolumeDataset')
 
 
 class CloudVolumeDataset(Dataset):
@@ -28,7 +28,7 @@ class CloudVolumeDataset(Dataset):
     def __init__(self, image_cv, seg_cv, id, bounds, mip_level,
                  phase, patch_shape, stride_shape,
                  transformer_config, slice_builder_cls=SliceBuilder,
-                 mirror_padding=False, pad_width=20):
+                 mirror_padding=False, pad_width=20, logfile=None):
 
         assert phase in ['train', 'val', 'test']
         self.phase = phase
@@ -42,6 +42,8 @@ class CloudVolumeDataset(Dataset):
 
         self.mirror_padding = mirror_padding
         self.pad_width = pad_width
+
+        self.logger = get_logger('CloudVolumeDataset', logfile=logfile)
 
         minx, maxx, miny, maxy, minz, maxz = self.bounds
         self.raws = []
@@ -88,7 +90,7 @@ class CloudVolumeDataset(Dataset):
         self.weight_slices = slice_builder.weight_slices
 
         self.patch_count = len(self.raw_slices)
-        logger.info(f'Number of patches: {self.patch_count}')
+        self.logger.info(f'Number of patches: {self.patch_count}')
 
     def __getitem__(self, idx):
         if idx >= len(self):
@@ -187,6 +189,8 @@ def get_train_loaders(config):
     assert 'loaders' in config, 'Could not find data loaders configuration'
     loaders_config = config['loaders']
 
+    logger = get_logger('CloudVolumeDataset', logfile=config['logfile'])
+
     logger.info('Creating training and validation set loaders...')
 
     # get image cloudvolume path and segmentation mask cv path
@@ -277,6 +281,8 @@ def get_test_loaders(config):
 
     assert 'datasets' in config, 'Could not find data sets configuration'
     datasets_config = config['datasets']
+
+    logger = get_logger('CloudVolumeDataset', logfile=config['logfile'])
 
     # get test data information
     image_cv_path = datasets_config['image_cv_path']
