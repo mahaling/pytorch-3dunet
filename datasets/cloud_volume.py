@@ -12,7 +12,7 @@ from datasets.hdf5 import SliceBuilder
 from unet3d.utils import get_logger
 
 import matplotlib
-matplotlib.use('TkAgg')
+#matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 #logger = get_logger('CloudVolumeDataset')
