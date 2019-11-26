@@ -48,7 +48,8 @@ class CloudVolumeDataset(Dataset):
         minx, maxx, miny, maxy, minz, maxz = self.bounds
         self.raws = []
         img = np.squeeze(self.image_cv[minx:maxx, miny:maxy, minz:maxz, 0])
-        #img = np.transpose(img, (2, 0, 1))
+        # transpose (the data is always CDHW)
+        img = np.transpose(img, (2, 0, 1))
         self.raws.append(img)
 
         mean, std = self._calculate_mean_std(self.raws[0])
@@ -61,7 +62,8 @@ class CloudVolumeDataset(Dataset):
             self.label_transform = self.transformer.label_transform()
             label = np.squeeze(self.seg_cv[minx:maxx, miny:maxy, minz:maxz, 0])
             label = np.where(label/np.ndarray.max(label)>=0.2, 1, 0)
-            #label = np.transpose(label, (2, 0, 1))
+            # transpose the label (the data is always CDHW)
+            label = np.transpose(label, (2, 0, 1))
             self.labels = [label]
 
             self.weight_maps = None
