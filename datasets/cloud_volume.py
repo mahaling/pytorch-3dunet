@@ -284,7 +284,8 @@ def get_test_loaders(config):
     assert 'datasets' in config, 'Could not find data sets configuration'
     datasets_config = config['datasets']
 
-    logger = get_logger('CloudVolumeDataset', logfile=config['logfile'])
+    logfile = config.get('logfile', None)
+    logger = get_logger('CloudVolumeDataset', logfile=logfile)
 
     # get test data information
     image_cv_path = datasets_config['image_cv_path']

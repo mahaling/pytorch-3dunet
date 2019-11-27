@@ -376,7 +376,8 @@ def get_train_loaders(config):
     assert 'loaders' in config, 'Could not find data loaders configuration'
     loaders_config = config['loaders']
 
-    logger = get_logger('HDF5Dataset', logfile=config['logfile'])
+    logfile = config.get('logfile', None)
+    logger = get_logger('HDF5Dataset', logfile=logfile)
 
     logger.info('Creating training and validation set loaders...')
 

@@ -86,6 +86,7 @@ def main():
     
     # Create main logger
     logfile = config.get('logfile', None)
+    config['logfile'] = logfile
     logger = get_logger('UNet3DTrainer', logfile=logfile)
     logger.info(config)
 
