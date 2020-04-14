@@ -1,5 +1,10 @@
 from unet3d import model
 
+in_channels = 1
+out_channels = 2
+
+final_sigmoid = False
+
 InstantiateModel = unet3d.model.UNet3D( in_channels,
                                         out_channels, 
                                         final_sigmoid,
