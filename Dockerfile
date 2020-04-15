@@ -1,4 +1,4 @@
-FROM seunglab/chunkflow:pytorch
+FROM fcollman/chunkflow:pytorch
 WORKDIR "/root/workspace"
 COPY requirements.txt /root/workspace
 RUN pip install --upgrade pip
