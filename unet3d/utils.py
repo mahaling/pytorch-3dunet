@@ -65,7 +65,7 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, map_location='cpu'):
     if torch.cuda.device_count() > 1 and map_location == 'gpu':
         state = torch.load(checkpoint_path)
     else:
-        state = torch.load(checkpoint_path, map_location='cpu')
+        state = torch.load(checkpoint_path, map_location=map_location)
         from collections import OrderedDict
         new_state_dict = OrderedDict()
         for k, v in state['model_state_dict'].items():
