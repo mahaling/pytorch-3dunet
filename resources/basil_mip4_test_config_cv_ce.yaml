@@ -1,0 +1,60 @@
+# path to the checkpoint file containing the model
+model_path: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip4_unfiltered/best_checkpoint.pytorch
+# Should the patches be stored in memory or written directly to H5 during prediction.
+# Set to True if you have enough RAM cause it's way faster
+store_predictions_in_memory: False
+# save output predictions in format HDF5 or TIFF
+prediction_format: HDF5
+# output folder to save predictions
+output_folder: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/mip4/predictions/chunks
+# cuda device
+device: cuda
+# prediction device
+mode: gpu
+# logfile
+logfile: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/logs/basil_mip4_cv_test.txt
+# model configuration
+model:
+  # model class
+  name: UNet3D
+  # number of input channels to the model
+  in_channels: 1
+  # number of output channels
+  out_channels: 2
+  # determines the order of operators in a single layer (crg - Conv3d+ReLU+GroupNorm)
+  layer_order: crg
+  # feature maps scale factor
+  f_maps: 32
+  # basic module
+  basic_module: DoubleConv
+  # number of groups in the groupnorm
+  num_groups: 8
+  # apply element-wise nn.Sigmoid after the final 1x1 convolution, otherwise apply nn.Softmax
+  final_sigmoid: false
+# predictor configuration
+predictor:
+  # standard in memory predictor
+  name: 'StandardPredictor'
+# specify the test datasets
+datasets:
+  # batch size
+  batch_size: 2
+  # patch size given to the network (adapt to fit in your GPU mem)
+  patch: [64, 200, 200]
+  # stride between patches (make sure the the patches overlap in order to get smoother prediction maps)
+  stride: [32, 128, 128]
+  # path to the raw data within the H5
+  raw_internal_path: raw
+  # how many subprocesses to use for data loading
+  num_workers: 8
+  # paths to the datasets
+  image_cv_path: precomputed://https://storage.googleapis.com/neuroglancer/basil_v0/son_of_alignment/v3.04_cracks_only_normalized_rechunked
+  seg_cv_path: precomputed://file:///allen/programs/celltypes/workgroups/em-connectomics/analysis_group/basil_mask_all
+  cutout_pkl_file: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/pkl/basil_mip4_test_x_10650_12750_y_10650_12750_z_140_640.pkl
+  mip_level: 4
+  transformer:
+    test:
+      raw:
+        - name: Normalize
+        - name: ToTensor
+          expand_dims: true
