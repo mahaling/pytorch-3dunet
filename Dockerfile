@@ -1,7 +1,11 @@
 FROM seunglab/chunkflow:pytorch
-RUN pip install --upgrade pip
-RUN pip install torch scikit-learn tensorboardx h5py scipy scikit-image scikit-learn pyyaml pytest
-RUN pip install hdbscan chunkflow==0.6.3
-RUN mkdir /nets && mkdir -p /root/workspace/pytorch-3dunet
 WORKDIR "/root/workspace"
+COPY requirements.txt /root/workspace
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt 
+RUN pip install  chunkflow==0.6.3
+RUN pip install torch==1.3.1
+RUN mkdir /nets && mkdir -p /root/workspace/pytorch-3dunet
+RUN apt-get update && apt-get install -y wget parallel
 COPY . /root/workspace/pytorch-3dunet
+RUN conda develop /root/workspace/pytorch-3dunet
