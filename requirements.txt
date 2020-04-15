@@ -1,0 +1,9 @@
+scikit-learn
+tensorboardx
+h5py
+scipy
+scikit-image
+scikit-learn
+pyyaml
+pytest
+hdbscan
