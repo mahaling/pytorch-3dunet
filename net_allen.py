@@ -4,7 +4,7 @@ in_channels = 1
 out_channels = 2
 
 final_sigmoid = False
-
+=
 InstantiatedModel = model.UNet3D( in_channels,
                                         out_channels, 
                                         final_sigmoid,
@@ -17,7 +17,6 @@ InstantiatedModel.training = False
 def pre_process(input_numpy_patch):
     input_numpy_patch *= 255 # chunkflow scales integer values to [0,1]
     return input_numpy_patch
-
 
 def post_processing(net_output):
     # the network output did not have sigmoid applied
