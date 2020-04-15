@@ -5,7 +5,7 @@ out_channels = 2
 
 final_sigmoid = False
 
-InstantiateModel = unet3d.model.UNet3D( in_channels,
+InstantiatedModel = unet3d.model.UNet3D( in_channels,
                                         out_channels, 
                                         final_sigmoid,
                                         f_maps=64,
@@ -13,7 +13,7 @@ InstantiateModel = unet3d.model.UNet3D( in_channels,
                                         num_groups=8,
                                         **kwargs)
 
-InstantiateModel.training = False
+InstantiatedModel.training = False
 
 def pre_process(input_numpy_patch):
     input_numpy_patch *= 255 # chunkflow scales integer values to [0,1]
