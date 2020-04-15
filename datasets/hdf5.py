@@ -443,7 +443,7 @@ def get_train_loaders(config):
     batch_size = 1
     if config['trainer']['batch_size']:
         batch_size = config['trainer']['batch_size']
-    print(batch_size)
+    
     return {
         'train': DataLoader(ConcatDataset(train_datasets), batch_size=batch_size, shuffle=True,
                             num_workers=num_workers),
@@ -479,7 +479,7 @@ def get_test_loaders(config):
 
     # get train and validation files
     test_paths = datasets_config['test_path']
-    print(test_paths)
+    #print(test_paths)
     assert isinstance(test_paths, list)
     # get h5 internal path
     raw_internal_path = datasets_config['raw_internal_path']

@@ -47,7 +47,41 @@ def save_checkpoint(state, is_best, checkpoint_dir, logger=None):
         log_info(f"Saving best checkpoint to '{best_file_path}'")
         shutil.copyfile(last_file_path, best_file_path)
 
+def load_checkpoint(checkpoint_path, model, optimizer=None, map_location='cpu'):
+    """Loads model and training parameters from a given checkpoint_path
+    If optimizer is provided, loads optimizer's state_dict of as well.
 
+    Args:
+        checkpoint_path (string): path to the checkpoint to be loaded
+        model (torch.nn.Module): model into which the parameters are to be copied
+        optimizer (torch.optim.Optimizer) optional: optimizer instance into
+            which the parameters are to be copied
+
+    Returns:
+        state
+    """
+    if not os.path.exists(checkpoint_path):
+        raise IOError(f"Checkpoint '{checkpoint_path}' does not exist")
+    if torch.cuda.device_count() >= 1 and map_location == 'gpu':
+        state = torch.load(checkpoint_path)
+    else:
+        state = torch.load(checkpoint_path, map_location='cpu')
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state['model_state_dict'].items():
+            name = k[7:]
+            new_state_dict[name] = v
+        state['model_state_dict'] = new_state_dict
+        
+    model.load_state_dict(state['model_state_dict'])
+
+    if optimizer is not None:
+        optimizer.load_state_dict(state['optimizer_state_dict'])
+
+    return state
+
+
+'''
 def load_checkpoint(checkpoint_path, model, optimizer=None):
     """Loads model and training parameters from a given checkpoint_path
     If optimizer is provided, loads optimizer's state_dict of as well.
@@ -71,7 +105,7 @@ def load_checkpoint(checkpoint_path, model, optimizer=None):
         optimizer.load_state_dict(state['optimizer_state_dict'])
 
     return state
-
+'''
 
 def save_network_output(output_path, output, logger=None):
     if logger is not None:

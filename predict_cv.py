@@ -49,6 +49,7 @@ def main():
     logger = utils.get_logger('UNet3DPredictor', logfile=logfile)
 
     # Create the model
+    logger.info(f'Creating the model')
     model = get_model(config)
 
     # multiple GPUs
