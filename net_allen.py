@@ -20,7 +20,7 @@ def pre_process(input_numpy_patch):
     return input_numpy_patch
 
 
-def post_processingnet_output:
+def post_processing(net_output):
     # the network output did not have sigmoid applied
     output_patch = net_output.sigmoid()
 
