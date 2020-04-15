@@ -9,7 +9,7 @@ final_sigmoid = False
 InstantiatedModel = model.UNet3D( in_channels,
                                         out_channels, 
                                         final_sigmoid,
-                                        f_maps=64,
+                                        f_maps=32,
                                         layer_order='crg',
                                         num_groups=8)
 
