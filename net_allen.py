@@ -1,5 +1,6 @@
 from unet3d import model
 import torch
+from unet3d import utils
 in_channels = 1
 out_channels = 2
 
@@ -8,7 +9,7 @@ final_sigmoid = False
 InstantiatedModel = model.UNet3D( in_channels,
                                         out_channels, 
                                         final_sigmoid,
-                                        f_maps=64,
+                                        f_maps=32,
                                         layer_order='crg',
                                         num_groups=8)
 
@@ -26,6 +27,5 @@ def post_processing(net_output):
 
 def load_model(checkpointpath):
     model = InstantiatedModel
-    chkpt = torch.load(checkpointpath)
-    model.load_state_dict(chkpt['model_state_dict'])
+    state = utils.load_checkpoint(checkpointpath, model, map_location='gpu')
     return model
