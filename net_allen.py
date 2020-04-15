@@ -4,7 +4,7 @@ in_channels = 1
 out_channels = 2
 
 final_sigmoid = False
-=
+
 InstantiatedModel = model.UNet3D( in_channels,
                                         out_channels, 
                                         final_sigmoid,
