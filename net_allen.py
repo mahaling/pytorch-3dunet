@@ -39,4 +39,5 @@ def post_processing(net_output):
 def load_model(checkpointpath):
     model = InstantiatedModel
     state = utils.load_checkpoint(checkpointpath, model, map_location='cuda:0')
+    model.cuda()
     return model
