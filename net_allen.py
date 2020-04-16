@@ -28,4 +28,5 @@ def post_processing(net_output):
 def load_model(checkpointpath):
     model = InstantiatedModel
     state = utils.load_checkpoint(checkpointpath, model, map_location='gpu')
+    model.cuda()
     return model
