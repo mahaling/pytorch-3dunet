@@ -72,6 +72,7 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, map_location='cpu'):
             name = k[7:]
             new_state_dict[name] = v
         state['model_state_dict'] = new_state_dict
+
         
     model.load_state_dict(state['model_state_dict'])
 
