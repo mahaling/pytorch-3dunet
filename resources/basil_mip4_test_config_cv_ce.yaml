@@ -40,9 +40,9 @@ datasets:
   # batch size
   batch_size: 2
   # patch size given to the network (adapt to fit in your GPU mem)
-  patch: [64, 200, 200]
+  patch: [32, 128, 128]
   # stride between patches (make sure the the patches overlap in order to get smoother prediction maps)
-  stride: [32, 128, 128]
+  stride: [16, 100, 100]
   # path to the raw data within the H5
   raw_internal_path: raw
   # how many subprocesses to use for data loading
@@ -50,8 +50,12 @@ datasets:
   # paths to the datasets
   image_cv_path: precomputed://https://storage.googleapis.com/neuroglancer/basil_v0/son_of_alignment/v3.04_cracks_only_normalized_rechunked
   seg_cv_path: precomputed://file:///allen/programs/celltypes/workgroups/em-connectomics/analysis_group/basil_mask_all
-  cutout_pkl_file: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/pkl/basil_mip4_test_x_10650_12750_y_10650_12750_z_140_640.pkl
+  #cutout_pkl_file: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/basil_mip4_cv_comparison_test.pkl
+  volume_start: [4437, 3375, 540]
+  volume_end: [4625, 3563, 640]
+  id: "basil_mip4_cv_test"
   mip_level: 4
+  prediction_threshold: 0.8
   transformer:
     test:
       raw:

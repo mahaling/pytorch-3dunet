@@ -4,6 +4,7 @@ from unet3d import utils
 from unet3d import config
 from unet3d.model import get_model
 import numpy as np
+
 import os
 
 in_channels = 1
@@ -32,23 +33,23 @@ def pre_process(input_numpy_patch):
     # img = np.transpose(input_numpy_patch, (0,1,4,2,3))
     print(input_numpy_patch.shape, np.max(input_numpy_patch), np.min(input_numpy_patch))
     input_patch = torch.from_numpy(input_numpy_patch)
+
     input_patch = input_patch.cuda()
     return input_patch
 
 def post_process(net_output):
     # the network output did not have sigmoid applied
-    # output_patch = net_output.softmax(dim=1).sigmoid()
-
     print(net_output.shape)
     net_output=net_output[:,1:,:,:,:]
     print(net_output.shape)
-    
-    
+
     return net_output
 
 def load_model(checkpointpath):
     model = InstantiatedModel
     state = utils.load_checkpoint(checkpointpath, model, map_location='cuda:0')
     model.cuda()
+
     model.eval()
     return model
+
