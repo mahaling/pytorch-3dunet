@@ -200,6 +200,8 @@ def get_train_loaders(config):
     seg_cv_path = loaders_config['seg_cv_path']
     cutout_pkl_file = loaders_config['cutout_pkl_file']
     mip_level = loaders_config['mip_level']
+    #volume_start = dataset_config['volume_start']
+    #volume_end = dataset_config['volume_end']
 
     # get train/validation patch size and stride
     train_patch = tuple(loaders_config['train_patch'])
@@ -228,6 +230,7 @@ def get_train_loaders(config):
     logger.info(f'Val slice builder class: {val_slice_builder_str}')
     val_slice_builder = _get_slice_builder_cls(val_slice_builder_str)
 
+    phase = 'train'
     for indx, row in df.iterrows():
         if row['id'] == 0 or row['phase'] =='test':
             continue
@@ -290,12 +293,20 @@ def get_test_loaders(config):
     # get test data information
     image_cv_path = datasets_config['image_cv_path']
     seg_cv_path = datasets_config['seg_cv_path']
-    cutout_pkl_file = datasets_config['cutout_pkl_file']
+    #cutout_pkl_file = datasets_config['cutout_pkl_file']
     mip_level = datasets_config['mip_level']
+    volume_start = datasets_config['volume_start']
+    volume_end = datasets_config['volume_end']
+    id = datasets_config['id']
+
+    cutout_bounds = [volume_start[0], volume_end[0], volume_start[1], volume_end[1], volume_start[2], volume_end[2]]
 
     image_cv = cloudvolume.CloudVolume(image_cv_path, mip=mip_level, bounded=False, autocrop=True, fill_missing=True)
-    seg_cv = cloudvolume.CloudVolume(seg_cv_path, mip=mip_level, bounded=False, autocrop=True, fill_missing=True)
-
+    
+    seg_cv = None
+    if not(seg_cv_path is None):
+        seg_cv = cloudvolume.CloudVolume(seg_cv_path, mip=mip_level, bounded=False, autocrop=True, fill_missing=True)
+    
     patch = tuple(datasets_config['patch'])
     stride = tuple(datasets_config['stride'])
 
@@ -311,19 +322,26 @@ def get_test_loaders(config):
     batch_size = datasets_config.get('batch_size', 1)
     logger.info(f'Batch size for dataloader: {batch_size}')
 
-    with open(cutout_pkl_file, 'rb') as f:
-        df = pickle.load(f)
+    #with open(cutout_pkl_file, 'rb') as f:
+    #    df = pickle.load(f)
 
     test_datasets = []
 
-    for indx, row in df.iterrows():
-        if row['id'] == 0 or row['phase'] != 'test':
-            continue
-        test_dataset = CloudVolumeDataset(image_cv, seg_cv, row['id'], list(row['cutout_bounds']), 
-                                          mip_level, 'test', patch, stride, 
-                                          transformer_config=datasets_config['transformer'],
-                                          mirror_padding=mirror_padding, pad_width=pad_width)
-        test_datasets.append(test_dataset)
+    test_dataset = CloudVolumeDataset(image_cv, seg_cv, id, cutout_bounds,
+                                      mip_level, 'test', patch, stride,
+                                      transformer_config=datasets_config['transformer'],
+                                      mirror_padding=mirror_padding,
+                                      pad_width=pad_width)
+    test_datasets.append(test_dataset)
+
+    #for indx, row in df.iterrows():
+    #    if row['id'] == 0 or row['phase'] != 'test':
+    #        continue
+    #    test_dataset = CloudVolumeDataset(image_cv, seg_cv, row['id'], list(row['cutout_bounds']), 
+    #                                      mip_level, 'test', patch, stride, 
+    #                                      transformer_config=datasets_config['transformer'],
+    #                                      mirror_padding=mirror_padding, pad_width=pad_width)
+    #    test_datasets.append(test_dataset)
     
     # use generator in order to create data loaders lazily one by one
     for indx, dataset in enumerate(test_datasets):
