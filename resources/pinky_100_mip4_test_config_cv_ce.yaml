@@ -1,0 +1,65 @@
+# path to the checkpoint file containing the model
+model_path: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/unet3d_models/basil_mip4_unfiltered/best_checkpoint.pytorch
+# Should the patches be stored in memory or written directly to H5 during prediction.
+# Set to True if you have enough RAM cause it's way faster
+store_predictions_in_memory: False
+# save output predictions in format HDF5 or TIFF
+prediction_format: HDF5
+# output folder to save predictions
+output_folder: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/pinky_100/predictions/mip4
+# cuda device
+device: cuda
+# prediction device
+mode: cuda
+# logfile
+logfile: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/logs/pinky_100_mip4_cv_test.txt
+# model configuration
+model:
+  # model class
+  name: UNet3D
+  # number of input channels to the model
+  in_channels: 1
+  # number of output channels
+  out_channels: 2
+  # determines the order of operators in a single layer (crg - Conv3d+ReLU+GroupNorm)
+  layer_order: crg
+  # feature maps scale factor
+  f_maps: 32
+  # basic module
+  basic_module: DoubleConv
+  # number of groups in the groupnorm
+  num_groups: 8
+  # apply element-wise nn.Sigmoid after the final 1x1 convolution, otherwise apply nn.Softmax
+  final_sigmoid: false
+# predictor configuration
+predictor:
+  # standard in memory predictor
+  name: 'StandardPredictor'
+# specify the test datasets
+datasets:
+  # batch size
+  batch_size: 2
+  # patch size given to the network (adapt to fit in your GPU mem)
+  patch: [32, 128, 128]
+  # stride between patches (make sure the the patches overlap in order to get smoother prediction maps)
+  stride: [16, 100, 100]
+  # path to the raw data within the H5
+  raw_internal_path: raw
+  # how many subprocesses to use for data loading
+  num_workers: 8
+  # paths to the datasets
+  image_cv_path: precomputed://https://storage.googleapis.com/neuroglancer/pinky100_v0/son_of_alignment_v15_rechunked
+  seg_cv_path: precomputed://https://www.dynamicannotationframework.com/segmentation/1.0/pinky100_sv16
+  #cutout_pkl_file: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/basil_mip4_cv_comparison_test.pkl
+  volume_start: [54706, 35935, 1] #[85041, 43677, 1000]
+  volume_end: [117268, 78874, 400] #[109526, 69422, 1200]
+  convert_bounds_to_mip: true
+  id: "pinky_100_mip4_cv_test_1_400"
+  mip_level: 4
+  prediction_threshold: 0.8
+  transformer:
+    test:
+      raw:
+        - name: Normalize
+        - name: ToTensor
+          expand_dims: true
