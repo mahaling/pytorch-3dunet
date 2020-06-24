@@ -11,6 +11,7 @@ def load_config():
     parser = argparse.ArgumentParser(description='UNet3D training')
     parser.add_argument('--config', type=str, help='Path to the YAML config file', required=True)
     args = parser.parse_args()
+    print(args)
     config = _load_config_yaml(args.config)
     # Get a device to train on
     

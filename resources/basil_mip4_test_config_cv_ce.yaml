@@ -53,6 +53,7 @@ datasets:
   #cutout_pkl_file: /allen/programs/celltypes/workgroups/em-connectomics/gayathrim/nuclei_segmentation/data/Basil/basil_mip4_cv_comparison_test.pkl
   volume_start: [4437, 3375, 540]
   volume_end: [4625, 3563, 640]
+  convert_bounds_to_mip: true
   id: "basil_mip4_cv_test"
   mip_level: 4
   prediction_threshold: 0.8

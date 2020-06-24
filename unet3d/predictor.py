@@ -5,10 +5,15 @@ import time
 import torch
 import tifffile
 from sklearn.cluster import MeanShift
+from warnings import warn
 
 from datasets.hdf5 import SliceBuilder
+import augment.transforms as transforms
 from unet3d.utils import get_logger
 from unet3d.utils import unpad
+from lib.chunk import Chunk
+from lib.save import SaveOperator
+from typing import Union
 
 logger = get_logger('UNet3DTrainer')
 
@@ -41,6 +46,392 @@ class _AbstractPredictor:
 
     def predict(self):
         raise NotImplementedError
+
+
+class PatchInferencer:
+    def __init__(self, input_patch_size: tuple, output_patch_size: tuple, 
+                 output_patch_overlap: tuple, num_output_channels: int,
+                 dtype: str='float32'):
+        
+        if output_patch_size is None:
+            output_patch_size = input_patch_size
+        
+        self.input_patch_size = input_patch_size
+        self.output_patch_size = output_patch_size
+        self.output_patch_overlap = output_patch_overlap
+        self.num_output_channels = num_output_channels
+        
+        assert len(output_patch_overlap) == 3
+        assert len(input_patch_size) == 3
+        assert len(output_patch_size) == 3
+
+        self.output_offset = tuple((osz-isz)//2 for osz, isz in 
+                                                   zip(input_patch_size, output_patch_size))
+        
+        self.input_patch_overlap = tuple((opo + 2 * ocms) for opo, ocms in 
+                                         zip(output_patch_overlap, 
+                                             self.output_offset))
+
+        self.input_patch_stride = tuple(p - o for p, o in
+                                        zip(input_patch_size, self.input_patch_overlap))
+        self.output_patch_stride = tuple(p - o for p, o in 
+                                         zip(output_patch_size, self.output_patch_overlap))
+
+        # prepare patch mask
+        self.output_patch_mask = PatchMask(output_patch_size, 
+                                           output_patch_overlap,
+                                           dtype=dtype)
+        # keep a version in cpu for making chunk mask
+        self.output_patch_mask_numpy = self.output_patch_mask
+
+    def __call__(self, input_patch: np.ndarray) -> np.ndarray:
+        r"""This method should be inherited for real implementation
+        Args:
+            patch: a image patch with datatype of float32,
+                The value range should be in [0,1]
+        
+        Returns
+        --------
+        np.ndarray
+        """
+        return NotImplementedError('this function should be overload by inherited class!')
+
+    def _reshape_patch_to_5d(self, input_patch):
+        """patch should be a 5d np array
+        """
+        assert isinstance(input_patch, np.ndarray)
+        if input_patch.ndim == 3:
+            input_patch = input_patch.reshape((1, 1) + input_patch.shape)
+        elif input_patch.ndim == 4:
+            input_patch = input_patch.reshape((1, ) + input_patch.shape)
+        return input_patch
+
+    def _crop_output_patch(self, output_patch):
+        return output_patch[:, :self.num_output_channels,
+                            self.output_offset[0]:output_patch.shape[-3]-self.output_offset[0],
+                            self.output_offset[1]:output_patch.shape[-2]-self.output_offset[1],
+                            self.output_offset[2]:output_patch.shape[-1]-self.output_offset[2]]
+
+class ChunkPredictor:
+    def __init__(self, convnet_model, 
+                 input_patch_size: Union[tuple, list],
+                 output_patch_size: Union[tuple, list] = None,
+                 patch_num: Union[tuple, list] = None,
+                 num_output_channels: int = 1,
+                 output_patch_overlap: Union[tuple, list] = (4, 64, 64),
+                 output_crop_margin: Union[tuple, list] = None,
+                 dtype = 'float32',
+                 framework: str = 'identity',
+                 batch_size: int = 1,
+                 bump: str = 'wu',
+                 input_size: tuple = None,
+                 mask_output_chunk: bool = False,
+                 mask_myelin_threshold = None,
+                 dry_run: bool = False,
+                 verbose: int = 1):
+        
+        assert input_size is None or patch_num is None
+
+        if output_patch_size is None:
+            output_patch_size = input_patch_size 
+        
+        self.input_patch_size = input_patch_size
+        self.output_patch_size = output_patch_size
+        self.output_patch_overlap = output_patch_overlap
+        self.patch_num = patch_num
+        self.batch_size = batch_size
+        self.input_size = input_size
+        self.model = convnet_model
+        
+        if mask_output_chunk:
+            # the chunk mask will handle the boundaries 
+            self.output_crop_margin = (0, 0, 0)
+        else:
+            if output_crop_margin is None:
+                self.output_crop_margin = self.output_patch_overlap
+            else:
+                self.output_crop_margin = output_crop_margin
+                # we should always crop more than the patch overlap 
+                # since the overlap region is reweighted by patch mask
+                # To-Do: equal should also be OK
+                assert np.alltrue([v<=m for v, m in zip(
+                    self.output_patch_overlap, 
+                    self.output_crop_margin)])
+
+        self.output_patch_crop_margin = tuple((ips-ops)//2 for ips, ops in zip(
+            input_patch_size, output_patch_size))
+        
+        self.output_offset = tuple(opcm+ocm for opcm, ocm in zip(
+            self.output_patch_crop_margin, self.output_crop_margin))
+    
+        self.output_patch_stride = tuple(s - o for s, o in zip(
+            output_patch_size, output_patch_overlap))
+
+        self.input_patch_overlap = tuple(opcm*2+oo for opcm, oo in zip(
+            self.output_patch_crop_margin, self.output_patch_overlap))
+
+        self.input_patch_stride = tuple(ps - po for ps, po in zip(
+            input_patch_size, self.input_patch_overlap))
+        
+        self.patch_inference_output_offset = tuple((osz-isz)//2 for osz, isz in 
+                                                   zip(self.input_patch_size, self.output_patch_size))
+        
+        self.patch_inference_input_patch_overlap = tuple((opo + 2 * ocms) for opo, ocms in 
+                                         zip(self.output_patch_overlap, 
+                                             self.patch_inference_output_offset))
+
+        self.patch_inference_input_patch_stride = tuple(p - o for p, o in
+                                        zip(self.input_patch_size, self.patch_inference_input_patch_overlap))
+        self.patch_inference_output_patch_stride = tuple(p - o for p, o in 
+                                         zip(self.output_patch_size, self.output_patch_overlap))
+
+
+        # no chunk wise mask, the patches should be aligned inside chunk
+        if not mask_output_chunk:
+            assert (self.input_size is not None) or (self.patch_num is not None)
+            if patch_num is None:
+                assert input_size is not None
+                self.patch_num = tuple((isz - o)//s for isz, o, s in zip(
+                    self.input_size, self.input_patch_overlap, self.input_patch_stride))
+
+            if self.input_size is None:
+                assert self.patch_num is not None 
+                self.input_size = tuple(pst*pn + po for pst, pn, po in zip(
+                    self.input_patch_stride, self.patch_num, self.input_patch_overlap))
+             
+            self.output_size = tuple(pst*pn + po - 2*ocm for pst, pn, po, ocm in zip(
+                self.output_patch_stride, self.patch_num, 
+                self.output_patch_overlap, self.output_crop_margin))
+        else:
+            # we can handle arbitrary input and output size
+            self.input_size = None 
+            self.output_size = None
+
+        self.num_output_channels = num_output_channels
+        self.verbose = verbose
+        self.mask_output_chunk = mask_output_chunk
+        self.output_chunk_mask = None
+        self.dtype = dtype        
+        self.mask_myelin_threshold = mask_myelin_threshold
+        self.dry_run = dry_run
+        
+        # allocate a buffer to avoid redundant memory allocation
+        self.input_patch_buffer = np.zeros((batch_size, 1, *input_patch_size),
+                                           dtype=dtype)
+
+        self.patch_slices_list = []
+        
+    def _check_alignment(self):
+        is_align = tuple((i - o) % s == 0 for i, s, o in zip(
+            self.input_size, 
+            self.patch_inference_input_patch_stride, 
+            self.patch_inference_input_patch_overlap))
+
+        # all axis should be aligned
+        # the patches should aligned with input size in case
+        # we will not mask the output chunk
+        assert np.all(is_align)
+        if self.verbose:
+            print('great! patches aligns in chunk.')
+
+    def _update_parameters_for_input_chunk(self, input_chunk):
+        """
+        if the input size is consistent with old one, reuse the
+        patch offset list and output chunk mask. Otherwise, recompute them.
+        """
+        if np.array_equal(self.input_size, input_chunk.shape):
+            print('reusing output chunk mask.')
+            assert self.patch_slices_list is not None
+        else:
+            if self.input_size is not None:
+                warn('the input size has changed, using new intput size.')
+            self.input_size = input_chunk.shape
+            
+            if not self.mask_output_chunk: 
+                self._check_alignment()
+
+            self.output_size = tuple(
+                isz-2*ocso for isz, ocso in 
+                zip(self.input_size, self.output_offset))
+        
+        self.output_patch_stride = tuple(s-o for s, o in zip(
+            self.output_patch_size, self.output_patch_overlap))
+
+        self._construct_patch_slices_list(input_chunk.global_offset)
+
+    def _construct_patch_slices_list(self, input_chunk_offset):
+        """
+        create the normalization mask and patch bounding box list
+        """
+        self.patch_slices_list = []
+        # the step is the stride, so the end of aligned patch is
+        # input_size - patch_overlap
+        
+        input_patch_size = self.input_patch_size
+        output_patch_size = self.output_patch_size
+        input_patch_overlap = self.input_patch_overlap 
+        input_patch_stride = self.input_patch_stride 
+
+        print('Construct patch slices list...')
+        for iz in range(0, self.input_size[0] - input_patch_overlap[0], input_patch_stride[0]):
+            if iz + input_patch_size[0] > self.input_size[0]:
+                iz = self.input_size[0] - input_patch_size[0]
+                assert iz >= 0
+            iz += input_chunk_offset[-3]
+            oz = iz + self.output_patch_crop_margin[0]
+            for iy in range(0, self.input_size[1] - input_patch_overlap[1], input_patch_stride[1]):
+                if iy + input_patch_size[1] > self.input_size[1]:
+                    iy = self.input_size[1] - input_patch_size[1]
+                    assert iy >= 0
+                iy += input_chunk_offset[-2]
+                oy = iy + self.output_patch_crop_margin[1]
+                for ix in range(0, self.input_size[2] - input_patch_overlap[2], input_patch_stride[2]):
+                    if ix + input_patch_size[2] > self.input_size[2]:
+                        ix = self.input_size[2] - input_patch_size[2]
+                        assert ix >= 0
+                    ix += input_chunk_offset[-1]
+                    ox = ix + self.output_patch_crop_margin[2]
+                    input_patch_slice =  (slice(iz, iz + input_patch_size[0]),
+                                          slice(iy, iy + input_patch_size[1]),
+                                          slice(ix, ix + input_patch_size[2]))
+                    output_patch_slice = (slice(oz, oz + output_patch_size[0]),
+                                          slice(oy, oy + output_patch_size[1]),
+                                          slice(ox, ox + output_patch_size[2]))
+                    self.patch_slices_list.append((input_patch_slice, output_patch_slice))
+
+    def _get_output_buffer(self, input_chunk):
+        output_buffer_size = (self.num_output_channels, ) + self.output_size
+        output_buffer_array = np.zeros(output_buffer_size, dtype=self.dtype)
+
+        output_global_offset = tuple(io + ocso for io, ocso in zip(
+            input_chunk.global_offset, self.output_offset))
+        
+        output_buffer = Chunk(output_buffer_array, global_offset=(0,) + output_global_offset)
+
+        assert output_buffer == 0
+        return output_buffer
+
+    def pre_process(self, input_chunk, transformations_list = None):
+        if transformations_list is None:
+            return input_chunk
+        else:
+            mean = input_chunk.mean()
+            std = input_chunk.std()
+            transformer = transforms.get_transformer(transformations_list, mean, std, "test")
+            raw_transform = transformer.raw_transform()
+            tarray = raw_transform(input_chunk.array)
+            tarray = np.squeeze(tarray.numpy(), axis=0)
+            transformed_chunk = Chunk(tarray, global_offset=input_chunk.global_offset)
+            return transformed_chunk
+
+    def post_process(self, output_chunk):
+        print(output_chunk.array.shape)
+        net_output = output_chunk.array[0,:,:,:]
+        output_chunk.array = net_output
+        return output_chunk
+
+    def predict_chunk(self, input_chunk: np.ndarray):
+        """
+        args:
+           input_chunk (Chunk): input chunk with global offset
+        """
+        assert isinstance(input_chunk, Chunk)
+
+        self._update_parameters_for_input_chunk(input_chunk)
+        output_buffer = self._get_output_buffer(input_chunk)
+
+        if not self.mask_output_chunk:
+            self._check_alignment()
+
+        if self.dry_run:
+            print('dry run, return a special artificial chunk.')
+            size = output_buffer.shape
+
+            if self.mask_myelin_threshold:
+                # eliminate myelin channel
+                size = (size[0]-1, *size[1:])
+            
+            return Chunk.create(size=size, 
+                                dtype=output_buffer.dtype,
+                                voxel_offset=output_buffer.global_offset)
+        
+        if input_chunk == 0:
+            print('input is all zero, return zero buffer directly')
+            if self.mask_myelin_threshold:
+                assert output_buffer.shape[0] == 4
+                return output_buffer[:-1, ...]
+            else:
+                return output_buffer
+        
+        if np.issubdtype(input_chunk.dtype, np.integer):
+            # normalize to 0-1 value range
+            dtype_max = np.info(input_chunk.dtype).max
+            input_chunk = input_chunk.astype(self.dtype) / dtype_max
+
+        if self.verbose:
+            chunk_time_start = time.time()
+
+        # set model to evalutation mode
+        self.model.eval()
+
+        # send model to device
+        self.model.cuda()
+
+        with torch.no_grad():
+            for i in range(0, len(self.patch_slices_list), self.batch_size):
+                if self.verbose:
+                    start = time.time()
+                
+                batch_slices = self.patch_slices_list[i:i+self.batch_size]
+                for batch_idx, slices in enumerate(batch_slices):
+                    self.input_patch_buffer[batch_idx, 0, :, :, :] = input_chunk.cutout(slices[0]).array
+
+                if self.verbose > 1:
+                    end = time.time()
+                    print('preparing %d input patches takes %3f sec' % self.batch_size, end-start)
+                    start = end
+
+                # the input and output patch is a 5d numpy array with 
+                # datatype of float32, the dimensions are (batch, channel, z, y, x)
+                # the input image should be normalized to [0,1]
+                patch = torch.from_numpy(self.input_patch_buffer).float().cuda()
+                
+                output_patch = self.model(patch)
+
+                assert output_patch.ndim == 5
+
+                net_out = output_patch.cpu().numpy()
+                #net_out_mask = np.where(net_out >= 0.9, 1, 0)
+                #print(net_out.shape)
+                for batch_idx, slices in enumerate(batch_slices):
+                    # slices[0] is for input patch slice
+                    # slices[1] is for output patch slice
+                    offset = (0,) + tuple(s.start for s in slices[1])
+                    print(offset)
+                    output_chunk = Chunk(net_out[batch_idx, 1:, :, :, :],
+                                        global_offset=offset)
+                    output_buffer.blend(output_chunk)
+            
+        return output_buffer
+
+    def __call__(self, input_chunk: np.ndarray, output_volume_path, mip, pre_transforms_list = None):
+        # pre process the chunk
+        transformed_chunk = self.pre_process(input_chunk, pre_transforms_list)
+        
+        # model and chunk will be sent to gpu in predict_chunk function
+        # predict the chunk
+        output_chunk = self.predict_chunk(transformed_chunk)
+
+        # post process chunk
+        #output_chunk = self.post_process(output_chunk)
+
+        # crop-margin for the output_chunk
+        output_chunk.crop_margin(output_bbox = output_chunk.bbox)
+
+        # save chunk to google cloud bucket
+        saveop = SaveOperator(output_volume_path, mip)
+        saveop(output_chunk)
+
 
 
 class StandardPredictor(_AbstractPredictor):

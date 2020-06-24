@@ -62,17 +62,16 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, map_location='cpu'):
     """
     if not os.path.exists(checkpoint_path):
         raise IOError(f"Checkpoint '{checkpoint_path}' does not exist")
-
-    state = torch.load(checkpoint_path, map_location)
-
-    if torch.cuda.device_count() < 2:
+    if torch.cuda.device_count() >= 1 and map_location == 'gpu':
+        state = torch.load(checkpoint_path)
+    else:
+        state = torch.load(checkpoint_path, map_location='cpu')
         from collections import OrderedDict
         new_state_dict = OrderedDict()
         for k, v in state['model_state_dict'].items():
             name = k[7:]
             new_state_dict[name] = v
         state['model_state_dict'] = new_state_dict
-
         
     model.load_state_dict(state['model_state_dict'])
 
@@ -80,7 +79,6 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, map_location='cpu'):
         optimizer.load_state_dict(state['optimizer_state_dict'])
 
     return state
-
 
 '''
 def load_checkpoint(checkpoint_path, model, optimizer=None):

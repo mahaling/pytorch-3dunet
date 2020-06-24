@@ -28,7 +28,7 @@ class CloudVolumeDataset(Dataset):
     def __init__(self, image_cv, seg_cv, id, bounds, mip_level,
                  phase, patch_shape, stride_shape,
                  transformer_config, slice_builder_cls=SliceBuilder,
-                 mirror_padding=False, pad_width=20, logfile=None):
+                 mirror_padding=False, pad_width=20, logfile=None, convert_bounds_to_mip=False):
 
         assert phase in ['train', 'val', 'test']
         self.phase = phase
@@ -37,7 +37,7 @@ class CloudVolumeDataset(Dataset):
         self.seg_cv = seg_cv
         self.id = id
         assert isinstance(bounds, list)
-        self.bounds = bounds
+        self.bounds = bounds if convert_bounds_to_mip is False else self.convert_to_mip(self.image_cv, bounds, mip_level, 0)
         self.mip_level = mip_level
 
         self.mirror_padding = mirror_padding
@@ -120,6 +120,16 @@ class CloudVolumeDataset(Dataset):
 
     def __getid__(self):
         return self.id
+
+    def convert_to_mip(self, image_cv, bounds, out_mip, in_mip=0):
+        corner = np.array([bounds[0], bounds[2], bounds[4]])
+        other_corner = np.array([bounds[1], bounds[3], bounds[5]])
+
+        bbox = cloudvolume.Bbox(corner, other_corner)
+        new_bbox = image_cv.bbox_to_mip(bbox, in_mip, out_mip).to_list()
+        new_bounds = [new_bbox[0], new_bbox[3], new_bbox[1], new_bbox[4], new_bbox[2], new_bbox[5]]
+        return new_bounds
+
 
     @staticmethod
     def _transform_patches(datasets, label_idx, transformer):
@@ -300,7 +310,7 @@ def get_test_loaders(config):
     id = datasets_config['id']
 
     cutout_bounds = [volume_start[0], volume_end[0], volume_start[1], volume_end[1], volume_start[2], volume_end[2]]
-
+    
     image_cv = cloudvolume.CloudVolume(image_cv_path, mip=mip_level, bounded=False, autocrop=True, fill_missing=True)
     
     seg_cv = None
@@ -331,7 +341,8 @@ def get_test_loaders(config):
                                       mip_level, 'test', patch, stride,
                                       transformer_config=datasets_config['transformer'],
                                       mirror_padding=mirror_padding,
-                                      pad_width=pad_width)
+                                      pad_width=pad_width,
+                                      convert_bounds_to_mip=datasets_config['convert_bounds_to_mip'])
     test_datasets.append(test_dataset)
 
     #for indx, row in df.iterrows():
